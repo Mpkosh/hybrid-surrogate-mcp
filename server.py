@@ -10,24 +10,6 @@ mcp = FastMCP("Calculator MCP Server")
 
 
 @mcp.tool()
-def add(a: float, b: float) -> float:
-    """Add two numbers together and return the result."""
-    return a + b
-
-
-@mcp.tool()
-def subtract(a: float, b: float) -> float:
-    """Subtract b from a and return the result."""
-    return a - b
-
-
-@mcp.tool()
-def multiply(a: float, b: float) -> float:
-    """Multiply two numbers together and return the result."""
-    return a * b
-
-
-@mcp.tool()
 def divide(a: float, b: float) -> float:
     """
     Divide a by b and return the result.
@@ -41,14 +23,16 @@ def divide(a: float, b: float) -> float:
 
 
 @mcp.tool()
-def explore_my_papers(task: str, s3_keys: list[str]) -> dict:
+def use_hybrid_model(task: str, s3_keys: list[str]) -> dict:
+    return {'answer': ''}
+
+
+@mcp.tool()
+def use_surrogate_model(task: str, s3_keys: list[str]) -> dict:
     """
     Answers questions based on the content of user-provided scientific papers. 
     This tool allows users to query specific documents they've uploaded, retrieving insights 
-    like figure descriptions, experimental details, or conclusions. It prioritizes answers
-    from these papers over general web searches.
-    It can also answer questions concerning the document set itself (e.g., number of uploaded papers,
-    their presence, titles, authors, or other metadata).
+    
     
     Args:
         task (str): The user's question about the uploaded papers.
@@ -69,6 +53,32 @@ def explore_my_papers(task: str, s3_keys: list[str]) -> dict:
     except Exception as e:
         logger.error(f'explore_my_papers ERROR: {e}')
         return {'answer': 'Could not extract any data from uploaded papers.'}
+
+
+# _______ plots:
+@mcp.tool()
+def orig_data_plots(task: str, s3_keys: list[str]) -> dict:
+    return {'answer': ''}
+
+
+@mcp.tool()
+def orig_data_plots(task: str, s3_keys: list[str]) -> dict:
+    return {'answer': ''}
+
+
+@mcp.tool()
+def predict_models_plots(task: str, s3_keys: list[str]) -> dict:
+    return {'answer': ''}
+
+
+@mcp.tool()
+def calibration_all_data_plots(task: str, s3_keys: list[str]) -> dict:
+    return {'answer': ''}
+
+
+@mcp.tool()
+def calibration_incomplete_data_plots(task: str, s3_keys: list[str]) -> dict:
+    return {'answer': ''}
 
 
 if __name__ == "__main__":
