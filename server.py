@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Calculator MCP Server")
+mcp = FastMCP(Hybrid Surrogate Server"")
 
 
 @mcp.tool()
@@ -30,9 +30,7 @@ def use_hybrid_model(task: str, s3_keys: list[str]) -> dict:
 @mcp.tool()
 def use_surrogate_model(task: str, s3_keys: list[str]) -> dict:
     """
-    Answers questions based on the content of user-provided scientific papers. 
-    This tool allows users to query specific documents they've uploaded, retrieving insights 
-    
+    ...
     
     Args:
         task (str): The user's question about the uploaded papers.
@@ -52,7 +50,7 @@ def use_surrogate_model(task: str, s3_keys: list[str]) -> dict:
         return a
     except Exception as e:
         logger.error(f'explore_my_papers ERROR: {e}')
-        return {'answer': 'Could not extract any data from uploaded papers.'}
+        return {'answer': 'Could not '}
 
 
 # _______ plots:
