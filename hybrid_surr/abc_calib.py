@@ -19,9 +19,10 @@ def surr_sim(rng, alpha, beta, modeling_duration,
     
     model = AESurrogateModel(n_nodes, top_str)
     #alpha, beta
-    q = model.simulate(alpha,beta)
+    q = model.simulate(alpha,beta)[:modeling_duration]
     
     q[q<0] = 0
+    '''
     week_data = pd.Series(q).groupby(pd.Series(q).index // 7).sum().values
     
     diff_w = week_data.shape[0] - modeling_duration
@@ -34,7 +35,8 @@ def surr_sim(rng, alpha, beta, modeling_duration,
     # shifting left or right horizontally    
     week_data= pd.Series(week_data).shift(shift).fillna(0).values
     return [i*koeff for i in np.squeeze(week_data)]
-
+    '''
+    return [i*koeff for i in np.squeeze(q)]
 
 def calibr(draws=200, chains = 4, epsilon=500, 
            shift=[0], incidence=[], top=[False], koeff = [1]):
