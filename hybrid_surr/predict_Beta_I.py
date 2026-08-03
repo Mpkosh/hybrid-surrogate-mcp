@@ -2,13 +2,13 @@ import pandas as pd
 import numpy as np
 import os
 import joblib
-#from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model
 from sklearn.preprocessing import StandardScaler
 from scipy.optimize import curve_fit
 #from statsmodels.tsa.statespace.sarimax import SARIMAXResults
 #import tensorflow as tf
 # our functions
-import seir_discrete 
+from hybrid_surr import seir_discrete 
 
 import warnings
 warnings.filterwarnings(action='ignore')
@@ -19,20 +19,6 @@ def load_saved_model(model_path):
         raise FileNotFoundError(f"Model file not found at {model_path}")
     return joblib.load(model_path)
 
-def decay(t, b0, q, phi):
-    #return [b0*np.exp(-q*tt) for tt in t]
-    return [b0*((1-phi)*np.exp(-q*tt)+phi) for tt in t]
-
-
-def combinedFunction(tdata, b0, q, phi, n=9):
-    # single data reference passed in, extract separate data
-    res = []
-    
-    for i in range(n):
-        #print(b0[i])
-        result = decay(tdata, b0[i], q, phi)
-        res.append(result)
-    return np.array(res).ravel()
 
 class LSTMPredictor:
     """
@@ -88,7 +74,8 @@ class LSTMPredictor:
 def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
                  predicted_days, stochastic, count_stoch_line, 
                  sigma, gamma, features_reg='', model_path='', 
-                 window_size=4, seed_name=''):
+                 seed_name='', window_size=14,
+                 modeling_duration=0):
     
     '''
     Predict Beta values.
@@ -148,57 +135,8 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
             predicted_beta.append(np.exp(pred[0]))
             input_b = np.array([*pred,*input_b.flatten()[:-1]]).reshape(1, -1)
     
-    
-    elif beta_prediction_method == 'expdecay':
-        switch = predicted_days[0]
-        b0 = seed_df.iloc[switch]['Beta'] 
-        fin = seed_df.shape[0]
-        n = 9
-        seed_params = seed_name[:-5]
-        all_df2 = []
-        
-        for i in range(1, n+1):
-            d = pd.read_csv(f'{seed_params}{i}.csv').iloc[:fin,:]
-            all_df2.append(d)
-            d.replace([np.inf, -np.inf], 0, inplace=True)
-           
-        tdata = np.concatenate([np.arange(switch,
-                                          fin)-switch for i in range(n)
-                               ])
-        comboData = np.array([all_df2[i].Beta.iloc[switch:
-                                                  ].values for i in range(n)
-                             ])
-        # curve fit the combined data to the combined function
-        coeffs, _ = curve_fit(lambda t, q, 
-                              phi:combinedFunction(np.arange(switch,
-                                                             fin)-switch, 
-                                                   comboData[:,0], 
-                                                   q, phi), 
-                              tdata, comboData.ravel(),
-                             maxfev = 5000)
-        #print('coeffs for q and phi: ',coeffs)
-        predicted_beta = decay( np.arange(switch,fin)-switch, b0, *coeffs)
-    
-    
-    elif beta_prediction_method == 'arimax':
-        #model_path = 'regression_day_for_seir.joblib'
-        model = SARIMAXResults.load(model_path)
-        to_pred = np.arange(predicted_days[0], seed_df.shape[0])
-        our_exog = seed_df['day'].iloc[predicted_days[0], 
-                                       seed_df.shape[0]]
-        
-        beggining_beta = model.predict(0, predicted_days[0],
-                                       exog=our_exog)
-        beggining_beta[beggining_beta<np.log(1e-7)] = np.log(1e-7)
-        beggining_beta = np.exp(beggining_beta)
-        
-        predicted_beta = model.predict(predicted_days[0], 
-                                       seed_df.shape[0],
-                                       exog=our_exog)
-        predicted_beta[predicted_beta<np.log(1e-7)] = np.log(1e-7)
-        predicted_beta = np.exp(predicted_beta)
-    
-    
+    if modeling_duration==0:
+        modeling_duration = seed_df.shape[0]
     elif beta_prediction_method == 'lstm':
         full_scaler = joblib.load(f'{model_path}.pkl')
         model = load_model(f'{model_path}.keras')
@@ -209,6 +147,7 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
                      ].shift(np.arange(window_size)
                             ).iloc[predicted_days[0]].values
         inp = np.log(inp+1e-7)
+        inp = np.nan_to_num(inp, neginf=0, posinf=0)
         
         for i in inp[::-1]:
             predictor.update_buffer([i])
@@ -216,7 +155,7 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
         
         predicted_beta = []
         for i in range(predicted_days[0], 
-                       seed_df.shape[0]):
+                       modeling_duration):
             pred = predictor.predict_next()
             #print(pred)
             if pred<0:

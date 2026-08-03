@@ -7,8 +7,8 @@ import time
 import math
 import os
 # our functions
-import predict_Beta_I
-import choice_start_day
+from hybrid_surr import predict_Beta_I
+from hybrid_surr import choice_start_day
 
 import warnings
 warnings.filterwarnings(action='ignore')
@@ -307,6 +307,7 @@ def main_f(I_prediction_method, count_stoch_line,
                                                    min_day=window_size,
                                                    frac=perc_switch,
                                                    n_people=n_people)
+        print(start_day,n_people,type_start_day,perc_switch)
         '''
         # ЗА сколько ДО пика
         if not isinstance(type_start_day, str):
@@ -428,9 +429,9 @@ def main_f(I_prediction_method, count_stoch_line,
 def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                   seed_numbers=[], on_incidence=False, 
                   switch_on_incidence=False,
-                 idx_s=0, idx_e=11, show_fig_flag=False,
+                 idx_s=0, idx_e=11, methods=[],show_fig_flag=False,
                  is_filename=False, sigma=0.1, gamma=0.08, perc_switch=0.01,
-                  stoch=0,
+                  stoch=0, m_folder='',
                  suff_m='sw100k', suff='sw100k'):
     
     #df_seeds = pd.read_csv(df_seeds)
@@ -444,35 +445,29 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
     types_start_day = ['fraq_people']#, 'roll_var', 'roll_var_seq']
 
     methods = ['last value','expanding mean last value',
-               'median beta', 
-               #'regression (day)',
-               'regression beta', #'arimax',
-               'lstm'
-              ]
+               'median beta','regression beta', 'lstm']
 
     new_labels = ['last_value', 'expanding_mean_last_value', 
-
-            'median_beta', #'regression_day',
-            'regression_beta', #'arimax',
-                  'lstm_day_E_previous_I'
-                 ]
-
+                'median_beta', 'regression_beta', 
+                  'lstm_day_E_previous_I']
+    if methods:
+        idx_s = 0
+        idx_e = len(methods)-1
+    topology =suff_m[:2] 
     for type_start_day in types_start_day:
 
         for beta_pred,new_label in zip(methods[idx_s:idx_e], 
                                        new_labels[idx_s:idx_e]):
 
             if 'median' in beta_pred:
-                model_path = f'{suff_m}_median_beta.csv'
-            elif 'regression beta' in  beta_pred:
-                model_path = f'{suff_m}_regression_bt.joblib'
+                model_path = f'{m_folder}{suff_m}_median_beta.csv'
+            elif 'regression beta' in beta_pred:
+                model_path = f'{m_folder}{suff_m}_regression_bt.joblib'
             elif 'lstm' in beta_pred:
-                model_path = f'{suff_m}_lstm_4_001_s10'   
+                model_path = f'{m_folder}{suff_m}_lstm_4_001_s10'   
             else:
                 model_path=''
             print('path: ', model_path)
-            if stoch > 0:
-                stochastic = True
             try:
                 all_rmse_I, all_rmse_Inc, all_rmse_Beta, \
                 all_r2, all_r2_Inc, all_r2_full, all_r2_Inc_full,\
@@ -489,7 +484,8 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                                         perc_switch=perc_switch,
                                         is_filename=is_filename,
                                         on_incidence=on_incidence,
-                                        switch_on_incidence=switch_on_incidence)
+                                        switch_on_incidence=switch_on_incidence,
+                                        topology=topology)
                 
                 # creating a dataframe for peaks
                 all_peak = pd.DataFrame(all_peak, 
@@ -513,8 +509,8 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                 results = pd.concat([rmse_df, all_peak], axis=1)
                 folder_name = seed_dirs.split('/')[-2]
                 
-            except FileNotFoundError:
-                pass
+            except FileNotFoundError as e:
+                print(e)
                 
             if not show_fig_flag:
                 path = f'results/{folder_name}/{type_start_day}/'
