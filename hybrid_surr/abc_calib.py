@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import pymc as pm
 import time
 from hybrid_surr.calibr.source.autoencoder import AESurrogateModel
@@ -16,12 +15,12 @@ def surr_sim(rng, alpha, beta, modeling_duration,
         top_str = 'ba'
     else:
         top_str = 'sw'
-    
     model = AESurrogateModel(n_nodes, top_str)
     #alpha, beta
     q = model.simulate(alpha,beta)[:modeling_duration]
     
     q[q<0] = 0
+    # to work with real week-data and allow shifting and/or scaling
     '''
     week_data = pd.Series(q).groupby(pd.Series(q).index // 7).sum().values
     
@@ -37,6 +36,7 @@ def surr_sim(rng, alpha, beta, modeling_duration,
     return [i*koeff for i in np.squeeze(week_data)]
     '''
     return [i*koeff for i in np.squeeze(q)]
+
 
 def calibr(draws=200, chains = 4, epsilon=500, 
            shift=[0], incidence=[], top=[False], koeff = [1]):

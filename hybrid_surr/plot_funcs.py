@@ -9,38 +9,38 @@ from sklearn.metrics import r2_score
 #from tqdm.notebook import tqdm, trange
 #from model_complex import Calibration, EpidData, FactoryBRModel
 #from timeit import default_timer as timer
+import time
 import pymc as pm
 import arviz as az
 import seaborn as sns 
-#import pandas as pd
 #import scipy.stats as stats
 from hybrid_surr import calibr_funcs
 from arviz.stats.density_utils import _fast_kde_2d, \
                                       _find_hdi_contours
 from shapely.geometry import Polygon, MultiPolygon 
-#from source.autoencoder import AESurrogateModel
-from hybrid_surr import abc_calib
-
+from hybrid_surr.calibr.source.autoencoder import AESurrogateModel
 
 # _____________________ FOR CALIBRATION    
 
 def plots(idata, data, title, with_trace=False, 
           show_values=True, return_r2=False, 
-          ax=None, p0_mode=0,p1_mode =0,network_params=[], pred=False,
-         n_hyb_runs=10):
+          ax=None, p0_mode=0,p1_mode=0,network_params=[], pred=False,
+         n_hyb_runs=1):
     param_names = ['tau','alpha']   
-    with_switch,num_runs,frac,gamma,\
-    delta,n_nodes,top,koeff, shift = network_params
-
+    with_switch,num_runs,frac,gamma,delta,\
+        n_nodes,top,koeff,shift = network_params
+    
     if pred:
         sim_value = idata.predictions.sim
         switchpoint = idata.constant_data.incidence.shape[0]
-        fin_size = switchpoint+7
+        fin_size = switchpoint+14
     
     else:
         sim_value = idata.posterior_predictive.sim
         switchpoint=0
         fin_size = data.shape[0]
+    
+    
     
     posterior = idata.posterior.stack(samples=("draw", "chain"))
     print(p0_mode,p1_mode)
@@ -60,33 +60,33 @@ def plots(idata, data, title, with_trace=False,
    
     
     sim_part = sim_value.stack(samples=("draw", "chain"))
-    
+   
     # posterior predictive lines
-    '''
-    l0 = ax[i].plot(sim_part[:switchpoint], 
+    if pred:
+        l0 = ax[i].plot(sim_part[:switchpoint,0], 
+                    color='gray', label='Simulation',
+                        alpha=0.5) 
+        l0 = ax[i].plot(sim_part[:switchpoint,1:], 
                     color='gray', alpha=0.05) 
-    '''
-    l00 = ax[i].plot(np.arange(switchpoint, 
-                               fin_size),
-                     sim_part[switchpoint:fin_size], 
-                    color='RoyalBlue', alpha=0.05) 
+    
+    a=time.time()
+    # for surrogate plot each Nth, as there're 40k lines originally
+    if num_runs[0]==0:
+        l00 = ax[i].plot(np.arange(switchpoint, 
+                                   fin_size),
+                         sim_part[switchpoint:fin_size,1::10], 
+                        color='RoyalBlue', alpha=0.05) 
+    else:
+        l00 = ax[i].plot(np.arange(switchpoint, 
+                                   fin_size),
+                         sim_part[switchpoint:fin_size], 
+                        color='RoyalBlue', alpha=0.05) 
+    print('sim plot time', time.time()-a)
     if pred:
         label='Forecast'
     else:
         label='Simulation'
-    
-    # calculating the ratio of satisfactory sims
-    all_r=[]
-    
-    for si in range(sim_part.shape[1]):
-        r2_part = r2_score(data, sim_part[:,si])
-        all_r.append(r2_part)
-    all_r = np.array(all_r)
-    print('shift:', shift)
-    for val in [0.7,0.75,0.8,0.85,0.9]:
-        print('samples with r2>=',val,':', round(all_r[all_r>=val].size/sim_part.shape[1],2)),
-    print('r2 mean:', round(all_r.mean(),3))        
-            
+        
     ax[i].plot(np.arange(switchpoint, fin_size),
             sim_part[switchpoint:fin_size,0], 
                    label=label, alpha=0.5)
@@ -94,69 +94,52 @@ def plots(idata, data, title, with_trace=False,
     
     all_r = []
     all_q = []    
-
-    if (num_runs[0]>0):
-        if pred:
-            data_appr = data.iloc[:fin_size]
-        else:
-            data_appr = data
-            
+    print(num_runs)
+    if (not pred) and (num_runs[0]>0):
         for j in range(n_hyb_runs):
-            print('running hyb: ',j)
         #num_runs=1
             q = calibr_funcs.simulation_func(1, tau=[p0_mode], 
                                     alpha=[p1_mode], 
-                                    modeling_duration=[data_appr.shape[0]], 
+                                    modeling_duration=[data.shape[0]], 
 
                                      with_switch=with_switch,
                                     num_runs=num_runs, 
                                     frac=frac, 
-                                    size=[data_appr.shape[0]])
-            
+                                    size=[data.shape[0]])
             all_q.append(q)
-            r2_part = r2_score(data_appr, q)
+            r2_part = r2_score(data_part, q)
             all_r.append(r2_part)
             
             #l1=ax[i].plot(q,color='tab:green', lw=2, ls='-')
-        
-        ax[i].fill_between(x=np.arange(switchpoint,
-                                       fin_size),
-                   y1 = np.array(all_q).min(axis=0)[switchpoint:],
-                   y2 = np.array(all_q).max(axis=0)[switchpoint:],
+    
+        ax[i].fill_between(x=np.arange(data.shape[0]),
+                   y1 = np.array(all_q).min(axis=0),
+                   y2 = np.array(all_q).max(axis=0),
                    color='tab:green', alpha=.5, zorder=99,
                    #label='Simulations with selected params'
                           )
-        
+
         best_idx = np.argmax(all_r)        
-        ax[i].plot(np.arange(switchpoint,
-                                       fin_size),
-                   all_q[best_idx][switchpoint:],
+        ax[i].plot(all_q[best_idx],
                      color='white', lw=4, ls='-',
                      zorder=980)
-        l1=ax[i].plot(np.arange(switchpoint,
-                                       fin_size),
-                      all_q[best_idx][switchpoint:],
+        l1=ax[i].plot(all_q[best_idx],
                      color='ForestGreen', lw=2, ls='-',
                      label=r'Best simulation ($R^2$' +\
                       f' = {all_r[best_idx]:.3f})',
                      zorder=990)
-             
+        
     elif num_runs[0]==0:
-        q = abc_calib.surr_sim(0,alpha=p1_mode, beta=p0_mode, 
-                           modeling_duration=[fin_size], 
-                           n_nodes=n_nodes, top=top, 
-                           koeff=koeff, shift=shift,
-             size=None)
-       
-
+        model = AESurrogateModel(10**5,top)
+        q = model.simulate(p1_mode,p0_mode)[:data.shape[0]]
         r2_part = r2_score(data_part, q)
-           
+            
         ax[i].plot(q,
                      color='white', lw=4, ls='-',
                      zorder=980)
         l1=ax[i].plot(q,
                      color='ForestGreen', lw=2, ls='-',
-                     label='Best simulation\n'+r'($R^2$' +\
+                     label=r'Best simulation ($R^2$' +\
                       f' = {r2_part:.3f})',
                      zorder=990)
     next_c='blue'
@@ -168,16 +151,15 @@ def plots(idata, data, title, with_trace=False,
     '''
     if pred:
         l2=ax[i].scatter(np.arange(switchpoint), 
-                         data[:switchpoint], 
+                         data_part[:switchpoint], 
                       color='LimeGreen', 
                          edgecolors='k',
                          s=50, zorder=1000,
-                        label='Known data',
-                        )
+                        label='Known data')
 
         l3=ax[i].scatter(np.arange(switchpoint, 
                                    data.shape[0]),
-                      data[switchpoint:], 
+                      data_part[switchpoint:], 
                       color='Grey', s=50,
                    label='Unknown data',
                      edgecolors='k',
@@ -230,12 +212,12 @@ def plots(idata, data, title, with_trace=False,
     ax[i].grid()
     #ax[i].set_title(title)
     if pred:
-        flabel_p = 10
+        flabel_p = fontsize
     else:
         flabel_p = 10
         
     ax[i].legend(fontsize=flabel_p).set_zorder(9999);
-    ax[i].set_title(f'shift: {shift}')
+    
     #return all_q, all_r
 
     if return_r2:
@@ -497,8 +479,8 @@ def pred_calib(observed_data, idata,
 def plot_calib(observed_data, idata, 
                true_tau, true_alpha, 
                network_params, pred=False,
-              ax_curves=[], ax_kde=[], with_observed=True,
-              n_hyb_runs=10):
+               n_hyb_runs=1,
+              ax_curves=[], ax_kde=[]):
     cmap = mpl.colormaps['viridis']
     hdi_list = [0.2,0.5,0.8,0.9]
     colors_l = cmap(np.linspace(0, 1, len(hdi_list)))
@@ -562,55 +544,42 @@ def plot_calib(observed_data, idata,
     min_x = idata.posterior[param_names[0]].min().round(1)
     min_y = idata.posterior[param_names[1]].min().round(1)
     
-    
-    ax_scatter.set_xticks(np.arange(min_x,1,1e-2), 
-                          np.arange(min_x,1,1e-2),
+    ax_scatter.set_xticks(np.arange(min_x,1,0.2), 
+                          np.arange(min_x,1,0.2).round(1),
                           #fontsize=flabel
                          )
-    ax_scatter.set_yticks(np.arange(min_y,1,1e-2),
-                         np.arange(min_y,1,1e-2),
+    ax_scatter.set_yticks(np.arange(min_y,1,0.1),
+                         np.arange(min_y,1,0.1).round(1),
                           #fontsize=flabel
                          )
-    
+
 
     p0_mode, p1_mode = calc_stat(idata,
                                  param_names)
 
     # i don't know if there can be multiple ref points, so it's easier    
-    if with_observed:
-        ls1 = ax_scatter.scatter(true_tau, true_alpha, alpha=0.9, 
+    ls1 = ax_scatter.scatter(true_tau, true_alpha, alpha=0.9, 
                         color='OrangeRed', label='Observed', 
                      edgecolors='white',
                      s=50, zorder=99)
-    else:
-        ls1 = ax_scatter.scatter(p0_mode,p1_mode)
+
     ls2 = ax_scatter.scatter(p0_mode, p1_mode, alpha=0.9, 
                         color='tab:green', label='Selected', 
                      edgecolors='white',
                      s=50, zorder=99) 
-    ls3 = ax_scatter.scatter(p0_mode, p1_mode, zorder=0, s=5,
+    ls3 = ax_scatter.scatter(true_tau, true_alpha, zorder=0, s=5,
                color=fc, label='Simulation')
     
     ax_scatter.set_xlabel(fancy_names[0], #fontsize=flabel
                          )
     ax_scatter.set_ylabel(fancy_names[1], #fontsize=flabel
                          )
-    
-    '''
+                          
     ax_scatter.set_xlim(0, 1)
-    ax_scatter.set_ylim(0, 1)
-    ticks_x = np.arange(0,1.01,0.1).round(2)
-    ticks_y = np.arange(0,1.01,0.1).round(2)
-    '''
-
-    ticks_x = np.linspace(idata.posterior.tau.min().values*0.95,
-                          idata.posterior.tau.max().values*1.05,
-                          10).round(2)
-    ticks_y = np.linspace(idata.posterior.alpha.min().values*0.95,
-                          idata.posterior.alpha.max().values*1.05,
-                          10).round(2)
-    
-    ax_scatter.set_xticks(ticks_x, list(map(str, ticks_x)), rotation=30)
+    ax_scatter.set_ylim(0.5, 1)
+    ticks_x = [0.1, 0.3, 0.5, 0.7, 0.9]
+    ticks_y = [0.5, 0.6, 0.7, 0.8, 0.9]
+    ax_scatter.set_xticks(ticks_x, list(map(str, ticks_x)))
     ax_scatter.set_yticks(ticks_y, list(map(str, ticks_y)))
     ax_scatter.tick_params(axis='both', which='major', labelsize=fontsize)
     ax_scatter.set_xlabel(fancy_names[0], fontsize=1.2*fontsize)
@@ -627,13 +596,7 @@ def plot_calib(observed_data, idata,
         flabel_p = 12
     else:
         flabel_p = 10
-        
-    if with_observed:
-        ax_scatter.legend(handles=[ls1,ls2,ls3,
-                               *legend_elements],
-                     fontsize=10)
-    else:
-        ax_scatter.legend(handles=[ls2,ls3,
+    ax_scatter.legend(handles=[ls1,ls2,ls3,
                                *legend_elements],
                      fontsize=10)
     ax_scatter.grid()
@@ -645,24 +608,21 @@ def plot_calib(observed_data, idata,
     '''
     ax_up.axvline(p0_mode, ls='-', color='white', lw=3)
     ax_up.axvline(p0_mode, ls='--', color='tab:green')
-    if with_observed:
-        ax_up.axvline(true_tau, ls='-', color='white', lw=3)
-        ax_up.axvline(true_tau, ls='--', color='OrangeRed')
-    
+    ax_up.axvline(true_tau, ls='-', color='white', lw=3)
+    ax_up.axvline(true_tau, ls='--', color='OrangeRed')
+
     ax_right.axhline(p1_mode, ls='-', color='white', lw=3)
     ax_right.axhline(p1_mode, ls='--', color='tab:green')
-    if with_observed:
-        ax_right.axhline(true_alpha, ls='-', color='white', lw=3)
-        ax_right.axhline(true_alpha, ls='--', color='OrangeRed')
+    ax_right.axhline(true_alpha, ls='-', color='white', lw=3)
+    ax_right.axhline(true_alpha, ls='--', color='OrangeRed')
 
     #ax_scatter.set_ylim(min_y*.9,1)
     #ax_scatter.set_xlim(min_x*.9,1)
-    
-    #ax_up.legend()
     
     plots(idata, observed_data, '',  
           ax=ax_curves, p0_mode=p0_mode,p1_mode=p1_mode,
           network_params=network_params,
          pred=pred,n_hyb_runs=n_hyb_runs)
+
     plt.tight_layout()
     return p0_mode, p1_mode

@@ -91,6 +91,8 @@ class SEIRNetworkModel():
         init_inf_frac: fraction of initially infected
         init_rec_frac: fraction of initially recovered
         '''
+        
+        print('hey')
         H = nx.DiGraph()
         H.add_edge('E', 'I', rate=gamma)
         H.add_edge('I', 'R', rate=delta)

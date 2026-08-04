@@ -8,26 +8,13 @@ import arviz as az
 import matplotlib.pyplot as plt
 import logging
 from typing import Any, Literal
-from io import BytesIO
+#from io import BytesIO
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("Hybrid Surrogate Server")
-
-    
-@mcp.tool()
-def divide(a: float, b: float) -> float:
-    """
-    Divide a by b and return the result.
-    
-    Raises:
-        ValueError: If b is zero
-    """
-    if b == 0:
-        raise ValueError("Cannot divide by zero")
-    return a / b
 
 
 @mcp.tool()
@@ -244,8 +231,7 @@ def calibrate_model_complete_data(model_name:Literal["hybrid", "network",'surrog
         
     beta_mode, alpha_mode = plot_funcs.plot_calib(observed_data, idata, 
                true_tau, true_alpha, 
-               network_params,
-                     n_hyb_runs=n_hyb_runs)
+               network_params, n_hyb_runs=n_hyb_runs)
     #plt.savefig(f'results/ba_hybrid.pdf', format='pdf', bbox_inches='tight')
     
 
@@ -264,15 +250,10 @@ def calibrate_model_forecast(model_name:Literal["hybrid", "network",'surrogate']
         ".": 1,
         #**artifact_metadata,
     }
-    return {"answer": f'Ran the hybrid model and uploaded the figure {11} to {11}', 
+    return {"answer": f'Calibrated the {model_name} model and uploaded the figure {11} to {11}', 
             "metadata": metadata}
 
 
-
-
-@mcp.tool()
-def calibration_incomplete_data_plots(s3_keys: list[str]) -> dict:
-    return {'answer': ''}
 
 
 if __name__ == "__main__":
