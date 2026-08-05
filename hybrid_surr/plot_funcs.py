@@ -25,8 +25,9 @@ from hybrid_surr.calibr.source.autoencoder import AESurrogateModel
 def plots(idata, data, title, with_trace=False, 
           show_values=True, return_r2=False, 
           ax=None, p0_mode=0,p1_mode=0,network_params=[], pred=False,
-         n_hyb_runs=1):
-    param_names = ['tau','alpha']   
+         n_hyb_runs=1,nth=5):
+    
+    #param_names = ['tau','alpha']   
     with_switch,num_runs,frac,gamma,delta,\
         n_nodes,top,koeff,shift = network_params
     
@@ -40,12 +41,8 @@ def plots(idata, data, title, with_trace=False,
         switchpoint=0
         fin_size = data.shape[0]
     
-    
-    
-    posterior = idata.posterior.stack(samples=("draw", "chain"))
     print(p0_mode,p1_mode)
     timespace = np.arange(len(data))
-    
     
     data_part = data
     model_time = [data.shape[0]]
@@ -66,15 +63,19 @@ def plots(idata, data, title, with_trace=False,
         l0 = ax[i].plot(sim_part[:switchpoint,0], 
                     color='gray', label='Simulation',
                         alpha=0.5) 
-        l0 = ax[i].plot(sim_part[:switchpoint,1:], 
-                    color='gray', alpha=0.05) 
+        if num_runs[0]==0:
+            l0 = ax[i].plot(sim_part[:switchpoint,1::nth], 
+                        color='gray', alpha=0.05) 
+        else:
+            l0 = ax[i].plot(sim_part[:switchpoint,1:], 
+                        color='gray', alpha=0.05) 
     
     a=time.time()
     # for surrogate plot each Nth, as there're 40k lines originally
     if num_runs[0]==0:
         l00 = ax[i].plot(np.arange(switchpoint, 
                                    fin_size),
-                         sim_part[switchpoint:fin_size,1::10], 
+                         sim_part[switchpoint:fin_size,1::nth], 
                         color='RoyalBlue', alpha=0.05) 
     else:
         l00 = ax[i].plot(np.arange(switchpoint, 
@@ -95,53 +96,54 @@ def plots(idata, data, title, with_trace=False,
     all_r = []
     all_q = []    
     print(num_runs)
-    if (not pred) and (num_runs[0]>0):
-        for j in range(n_hyb_runs):
-        #num_runs=1
-            q = calibr_funcs.simulation_func(1, tau=[p0_mode], 
-                                    alpha=[p1_mode], 
-                                    modeling_duration=[data.shape[0]], 
-
-                                     with_switch=with_switch,
-                                    num_runs=num_runs, 
-                                    frac=frac, 
-                                    size=[data.shape[0]])
-            all_q.append(q)
-            r2_part = r2_score(data_part, q)
-            all_r.append(r2_part)
-            
-            #l1=ax[i].plot(q,color='tab:green', lw=2, ls='-')
+    if not pred:
+        if num_runs[0]>0:
+            for j in range(n_hyb_runs):
+            #num_runs=1
+                q = calibr_funcs.simulation_func(1, tau=[p0_mode], 
+                                        alpha=[p1_mode], 
+                                        modeling_duration=[data.shape[0]], 
     
-        ax[i].fill_between(x=np.arange(data.shape[0]),
-                   y1 = np.array(all_q).min(axis=0),
-                   y2 = np.array(all_q).max(axis=0),
-                   color='tab:green', alpha=.5, zorder=99,
-                   #label='Simulations with selected params'
-                          )
-
-        best_idx = np.argmax(all_r)        
-        ax[i].plot(all_q[best_idx],
-                     color='white', lw=4, ls='-',
-                     zorder=980)
-        l1=ax[i].plot(all_q[best_idx],
-                     color='ForestGreen', lw=2, ls='-',
-                     label=r'Best simulation ($R^2$' +\
-                      f' = {all_r[best_idx]:.3f})',
-                     zorder=990)
+                                         with_switch=with_switch,
+                                        num_runs=num_runs, 
+                                        frac=frac, 
+                                        size=[data.shape[0]])
+                all_q.append(q)
+                r2_part = r2_score(data_part, q)
+                all_r.append(r2_part)
+                
+                #l1=ax[i].plot(q,color='tab:green', lw=2, ls='-')
         
-    elif num_runs[0]==0:
-        model = AESurrogateModel(10**5,top)
-        q = model.simulate(p1_mode,p0_mode)[:data.shape[0]]
-        r2_part = r2_score(data_part, q)
-            
-        ax[i].plot(q,
-                     color='white', lw=4, ls='-',
-                     zorder=980)
-        l1=ax[i].plot(q,
-                     color='ForestGreen', lw=2, ls='-',
-                     label=r'Best simulation ($R^2$' +\
-                      f' = {r2_part:.3f})',
-                     zorder=990)
+            ax[i].fill_between(x=np.arange(data.shape[0]),
+                       y1 = np.array(all_q).min(axis=0),
+                       y2 = np.array(all_q).max(axis=0),
+                       color='tab:green', alpha=.5, zorder=99,
+                       #label='Simulations with selected params'
+                              )
+    
+            best_idx = np.argmax(all_r)        
+            ax[i].plot(all_q[best_idx],
+                         color='white', lw=4, ls='-',
+                         zorder=980)
+            l1=ax[i].plot(all_q[best_idx],
+                         color='ForestGreen', lw=2, ls='-',
+                         label=r'Best simulation ($R^2$' +\
+                          f' = {all_r[best_idx]:.3f})',
+                         zorder=990)
+        
+        elif num_runs[0]==0:
+            model = AESurrogateModel(10**5,top)
+            q = model.simulate(p1_mode,p0_mode)[:data.shape[0]]
+            r2_part = r2_score(data_part, q)
+                
+            ax[i].plot(q,
+                         color='white', lw=4, ls='-',
+                         zorder=980)
+            l1=ax[i].plot(q,
+                             color='ForestGreen', lw=2, ls='-',
+                             label=r'Best simulation ($R^2$' +\
+                              f' = {r2_part:.3f})',
+                             zorder=990)
     next_c='blue'
 
     # real data
@@ -479,7 +481,7 @@ def pred_calib(observed_data, idata,
 def plot_calib(observed_data, idata, 
                true_tau, true_alpha, 
                network_params, pred=False,
-               n_hyb_runs=1,
+               n_hyb_runs=1,nth=5,
               ax_curves=[], ax_kde=[]):
     cmap = mpl.colormaps['viridis']
     hdi_list = [0.2,0.5,0.8,0.9]
@@ -535,7 +537,6 @@ def plot_calib(observed_data, idata,
         scatter_kwargs={'color':fc},
         ax=np.array([[ax_up,None],[ax_scatter,ax_right]])
     )
-    print()
     # removing ticks from small plots
     for a in [ax_up, ax_right]:
         plt.setp(a.get_xticklabels(), visible=False)
@@ -557,7 +558,7 @@ def plot_calib(observed_data, idata,
     p0_mode, p1_mode = calc_stat(idata,
                                  param_names)
 
-    # i don't know if there can be multiple ref points, so it's easier    
+    # i don't know if there can be multiple ref points, so it's easier  
     ls1 = ax_scatter.scatter(true_tau, true_alpha, alpha=0.9, 
                         color='OrangeRed', label='Observed', 
                      edgecolors='white',
@@ -622,7 +623,7 @@ def plot_calib(observed_data, idata,
     plots(idata, observed_data, '',  
           ax=ax_curves, p0_mode=p0_mode,p1_mode=p1_mode,
           network_params=network_params,
-         pred=pred,n_hyb_runs=n_hyb_runs)
+         pred=pred,n_hyb_runs=n_hyb_runs,nth=nth)
 
     plt.tight_layout()
     return p0_mode, p1_mode

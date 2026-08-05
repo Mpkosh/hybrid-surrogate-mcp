@@ -92,7 +92,7 @@ class SEIRNetworkModel():
         init_rec_frac: fraction of initially recovered
         '''
         
-        print('hey')
+        #print('hey')
         H = nx.DiGraph()
         H.add_edge('E', 'I', rate=gamma)
         H.add_edge('I', 'R', rate=delta)
