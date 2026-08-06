@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 from fastmcp import FastMCP
-from hybrid_surr import plot_hyb,plot_funcs,aux_f
+from hybrid_surr import plot_hyb,plot_funcs,aux_f,surr_funcs
 
+import torch
+from sklearn.metrics import r2_score#, root_mean_squared_error, top_k_accuracy_score
 import pandas as pd
 import numpy as np
 import arviz as az
 import matplotlib.pyplot as plt
+import seaborn as sns
 import logging
 from typing import Any, Literal
 #from io import BytesIO
@@ -17,6 +20,7 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("Hybrid Surrogate Server")
 folder_main = 'hybrid_surr/'
 
+# --------- hybrid ----------
 @mcp.tool()
 def run_hybrid_once(sigma: float=0.3, gamma: float=0.2, 
                perc_switch: float=0.01, stoch: int=10, 
@@ -135,6 +139,217 @@ def run_hybrid(sigma: float=0.3, gamma: float=0.2,
             "metadata": metadata}
 
 
+# --------- surrogate ----------
+@mcp.tool()
+def surrogate_point_2x2(topology:Literal["ba","sw"]='ba',
+                          test_indices:list[int] = [11,7,1,15],
+                    ) -> dict:
+    type_df = 'point'
+    ae = torch.load(f'{folder_main}/models/autoencoder_{topology}_100k_n.pt', 
+                    weights_only=False)
+    X_train, y_train, X_test, y_test,tmax = \
+        surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
+                                 type_df=type_df, network_type = topology)
+    fontsize = 12
+    rows, cols = 2, 2
+    fig, ax = plt.subplots(rows, cols, figsize=(10, 8))
+    labels = ['(a)', '(b)', '(c)', '(d)']
+    counter = 0
+    cut = 100
+    alpha_beta, r2s = [], []
+    for row in range(rows):
+        for col in range(cols):
+            surrogate_sim = surr_funcs.predict(ae, 
+                                               X_test[test_indices[counter]]
+                                              ).numpy()
+            r2 = r2_score(y_test[test_indices[counter]], surrogate_sim)
+            #print(labels[counter], test_indices[counter], X_test[test_indices[counter]])
+            r2s.append(r2)
+            alpha_beta.append(X_test[test_indices[counter]])
+            
+            ax[row][col].plot(y_test[test_indices[counter]][:cut], 
+                              label='Network model', marker='o', 
+                              color='OrangeRed')
+            ax[row][col].plot(surrogate_sim[:cut], lw=3, color='RoyalBlue', 
+                              label=f'Surrogate model\n$R^2=${r2:.3f}')
+    
+            ax[row][col].set_xlabel('Time, days', fontsize=1.2*fontsize)
+            ax[row][col].set_ylabel('Incidence, cases', fontsize=1.2*fontsize)
+            ax[row][col].set_ylim(0, 3000)
+            ax[row][col].set_xlim(-5, 100)
+            ax[row][col].tick_params(axis='both', which='major', 
+                                     labelsize=fontsize)
+            ax[row][col].legend(fontsize=1.2*fontsize)
+            ax[row][col].grid()
+            
+            # Add subplot label outside the top-left corner
+            ax[row][col].text(-0.1, 1.1, labels[counter],
+                        transform=ax[row][col].transAxes, size=fontsize*1.5)
+            counter += 1
+    
+    plt.tight_layout()
+    
+    metadata = {
+        'R2 for test samples': r2s,
+        'Alpha and beta of test samples': alpha_beta,
+        #**artifact_metadata,
+    }
+    return {"answer": f'Uploaded the figure {11} to {11}', 
+            "metadata": metadata}
+
+
+@mcp.tool()
+def surrogate_interval_2x2(topology:Literal["ba","sw"]='ba',
+                          test_indices:list[int] = [1100,7,1,150],
+                    ) -> dict:
+    type_df = 'interval'
+    ae = torch.load(folder_main+f'/models/autoencoder_interval_{topology}_100k_n.pt', 
+                    weights_only=False)
+
+    X_train, y_train, X_test, y_test, tmax, mtest,qw = \
+                    surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
+                                             type_df=type_df,
+                                             network_type = topology,
+                                             with_orig_point_test=True)
+
+    fontsize = 11
+    rows, cols = 2, 2
+    fig, ax = plt.subplots(rows, cols, figsize=(10, 8))
+    
+    labels = ['(a)', '(b)', '(c)', '(d)']
+    counter = 0
+    mean_index = range(tmax)
+    low_index = range(tmax, 2*tmax)
+    high_index = range(2*tmax, 3*tmax)
+    cut = 100
+    r2s, alpha_beta = [], []
+    for row in range(rows):
+        for col in range(cols):
+            surrogate_sim = surr_funcs.predict(ae, X_test[test_indices[counter]]).numpy()
+            r2 = r2_score(y_test[test_indices[counter]], surrogate_sim)
+            r2s.append(r2)
+            alpha_beta.append(X_test[test_indices[counter]])
+        
+            gt = np.array(y_test[test_indices[counter]])
+            
+            ax[row][col].plot(gt[mean_index][:cut], label='Network model, mean', 
+                              marker='', color='OrangeRed')
+            
+            real_idx = mtest.iloc[test_indices[counter]].name
+            part = qw[qw.group==real_idx].iloc[:,5:-1]
+            part.columns = part.columns.astype(int)
+            ax[row][col].plot(part.T, color='OrangeRed', ls=':', alpha=.5,
+                             label=['Network model, trajectory']+['']*9)
+        
+            ax[row][col].fill_between(np.linspace(0, tmax, tmax)[:cut], 
+                                      gt[low_index][:cut], gt[high_index][:cut],
+                                alpha = 0.3, color='OrangeRed', 
+                                      label='Network model interval')
+            
+            ax[row][col].plot(surrogate_sim[mean_index][:cut], lw=2, 
+                              color='RoyalBlue', label='Surrogate model, mean')
+            ax[row][col].fill_between(np.linspace(0, tmax, tmax)[:cut], 
+                        surrogate_sim[low_index][:cut], 
+                        surrogate_sim[high_index][:cut],
+                        alpha = 0.3, color='RoyalBlue', 
+                                      label='Surrogate model interval')
+    
+            ax[row][col].set_xlabel('Time, days', fontsize=1.2*fontsize)
+            ax[row][col].set_ylabel('Incidence, cases', fontsize=1.2*fontsize)
+            ax[row][col].set_ylim(0, 2800)
+            ax[row][col].set_xlim(-5, cut)
+            ax[row][col].tick_params(axis='both', which='major', labelsize=fontsize)
+            ax[row][col].legend(fontsize=fontsize)
+            ax[row][col].grid()
+            
+            # Add subplot label outside the top-left corner
+            ax[row][col].text(-0.1, 1.1, labels[counter],
+                        transform=ax[row][col].transAxes, size=fontsize*1.5)
+            
+            counter += 1
+    
+    plt.tight_layout()
+    '''
+    fig.savefig('../figures/ae_ba_network_subplots_interval_estimation.pdf', bbox_inches='tight')
+    fig.savefig('../figures/ae_ba_network_subplots_interval_estimation.png', dpi=150, bbox_inches='tight')
+    '''
+    metadata = {
+        'R2 for test samples': r2s,
+        'Alpha and beta of test samples': alpha_beta,
+        #**artifact_metadata,
+    }
+    return {"answer": f'Uploaded the figure {11} to {11}', 
+            "metadata": metadata}
+    
+
+@mcp.tool()
+def surrogate_heatmap_r2(topology:Literal["ba","sw"]='ba',
+                    ) -> dict:
+    type_df = 'point'
+    ae = torch.load(f'{folder_main}/models/autoencoder_{topology}_100k_n.pt', 
+                    weights_only=False)
+    X_train, y_train, X_test, y_test,tmax = \
+        surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
+                                 type_df=type_df,network_type = topology)
+    dd = surr_funcs.df_for_heatmap(ae, type_df,X_train, y_train, 
+                                   X_test, y_test, tmax)
+    
+    type_df = 'interval'
+    ae = torch.load(f'{folder_main}/models/autoencoder_interval_{topology}_100k_n.pt', 
+                    weights_only=False)
+    X_train, y_train, X_test, y_test,tmax = \
+        surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
+                                 type_df=type_df,network_type = topology)
+    dd2_mean,dd2_min,dd2_high = surr_funcs.df_for_heatmap(ae, type_df, 
+                                                          X_train, y_train, 
+                                                          X_test, y_test, tmax)
+    fontsize = 15
+    fig, axes = plt.subplots(2, 2, figsize=(14, 12))
+    ax=axes.flatten()
+    
+    n = ['(a)','(b)','(c)','(d)'][::-1]
+    
+    cmap = surr_funcs.nonlinear_cmap()
+    for i,heat_df, title in zip(range(4), 
+                                [dd,dd2_mean,dd2_min,dd2_high], 
+                                ['Point estimation','Interval estimation (mean)',
+                                'Interval estimation (lower bound)',
+                                'Interval estimation (upper bound)'
+                                ]):
+        
+        ax_i = sns.heatmap(heat_df.sort_index(level=1, ascending=False), 
+                           cmap=cmap, ax=ax[i], #norm=norm, 
+                           cbar_kws={'extendfrac': .1,
+                                    #"ticks":ticks, "boundaries":boundaries
+                                    },
+                           vmin=0, vmax=1,
+                          xticklabels = 10, yticklabels=10,
+                          linewidths=0.0, rasterized=True,)
+        ax_i.set_title(title, fontsize=1.2*fontsize)
+        ax_i.text(-0.1, 1.1, n.pop(),
+                  transform=ax_i.transAxes, size=1.5*fontsize)
+        ax_i.collections[0].cmap.set_bad('0.7')
+        ax_i.set_xlabel(r'$\beta_n$', fontsize=1.2*fontsize)
+        ax_i.set_ylabel(r'$\alpha$', fontsize=1.2*fontsize)
+        ax_i.tick_params(axis='both', which='major', labelsize=fontsize)
+        cbar = ax_i.collections[0].colorbar
+        cbar.set_label(r'$R^2$', rotation=0, size=fontsize)
+            
+    for i in [-1,-2,-3,-4]:    
+        ax_i.figure.axes[i].tick_params(labelsize=fontsize)
+    
+    #ax_1.figure.axes[-1].set_ylabel(r'$R^2$', size=fontsize)
+    #ax_1.figure.axes[-2].set_ylabel(r'$R^2$', size=fontsize)
+    
+    plt.tight_layout()
+    metadata = {
+        #**artifact_metadata,
+    }
+    return {"answer": f'Uploaded the figure {11} to {11}', 
+            "metadata": metadata}
+
+
+# --------- calibrations/forecasts ----------
 @mcp.tool()
 def calibrate_model_complete_data(model_name:Literal["hybrid", "network",'surrogate']='hybrid',
                     n_hyb_runs:int=1, nth:int=5,
@@ -434,7 +649,40 @@ def calibrate_model_forecast_3in1(model_name:Literal["hybrid",
     }
     return {"answer": f'Forecasted with the {model_name} model and uploaded the figure {11} to {11}', 
             "metadata": metadata}
+
+
+# --------- heatmaps/aux.figs ----------
+@mcp.tool()
+def plot_synth_peaks() -> dict:
+    fig, axes = plt.subplots(2,2, figsize=(12,10))
+    ax = axes.flatten()
     
+    heat_orig = aux_f.heatmap_orig_peaks(topology='ba',
+                                         folder=f'{folder_main}/aux_hyb')
+    aux_f.peaks_hmaps(heat_orig, with_inc=True, 
+                      title=', Barabasi-Albert', 
+                      ax=[ax[0],ax[2]], n=['(a)','(c)'])
+    heat_orig = aux_f.heatmap_orig_peaks(topology='sw',
+                                         folder=f'{folder_main}/aux_hyb')
+    aux_f.peaks_hmaps(heat_orig, with_inc=True, 
+                      title=', small world', 
+                      ax=[ax[1],ax[3]], n=['(b)','(d)'])
+    metadata = {
+        #**artifact_metadata,
+    }
+    return {"answer": f'Uploaded the figures {11} and {11} to {11}', 
+            "metadata": metadata}
+    
+
+@mcp.tool()
+def plot_synth_inc_beta() -> dict:
+    aux_f.plot_synth_inc_beta(folder=f'{folder_main}/aux_hyb/')
+    metadata = {
+        #**artifact_metadata,
+    }
+    return {"answer": f'Uploaded the figures {11} and {11} to {11}', 
+            "metadata": metadata}
+
 
 @mcp.tool()
 def plot_forecast_peak_errors(start_preds:list[Literal["14b","7b","7a"]]=\

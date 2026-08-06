@@ -5,10 +5,110 @@ import matplotlib.gridspec as gridspec
 import matplotlib as mpl
 import arviz as az
 from matplotlib.colors import LinearSegmentedColormap
-
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,FuncFormatter
+from sklearn.model_selection import train_test_split
 from scipy.spatial import ConvexHull
 import seaborn as sns
 
+
+
+def heatmap_orig_peaks(topology='ba',folder=''):
+    df = pd.read_csv(f'{folder}/{topology}_incidence_100k.csv',
+                    skiprows=lambda x: x > 0 and (x - 1) % 10 != 0)
+    _, df = train_test_split(df, test_size=2400, 
+                             random_state=42, stratify=None)
+    
+    pt = df.iloc[:,5:].values.argmax(axis=1)+1
+    ph = df.iloc[:,5:].values.max(axis=1)
+    
+    new_df = df.iloc[:,[0,4]]
+    new_df = new_df.round(2)
+    new_df['actual_peak_Inc'] = ph
+    new_df['actual_peak_day_Inc'] = pt
+    return new_df
+
+
+def get_synth_inc_beta(topology='ba', folder=''):
+    qw = pd.read_csv(f'{folder}/{topology}_incidence_100k.csv',
+                    skiprows=lambda x: x > 0 and (x - 1) % 10 != 0)
+    X = qw.iloc[:,5:]
+    _, mtest_inc = train_test_split(X, test_size=2400, 
+                                  random_state=42, stratify=None)
+    qw_beta = pd.read_csv(f'{folder}/{topology}_beta_100k.csv')
+    X_beta = qw_beta.iloc[:,5:]
+    _, mtest_beta = train_test_split(X_beta, test_size=2400, 
+                                  random_state=42, stratify=None)
+    return mtest_inc, mtest_beta
+
+
+def comma_format(x, pos):
+    if x >= 10000:
+        return f"{int(x):,}"
+    return f"{int(x)}" 
+    
+
+def plot_synth_inc_beta(folder='hybrid_surr/aux_hyb'):
+    mtest_ba, mtest_ba_beta = \
+        get_synth_inc_beta(topology='ba', folder=folder)
+    mtest_sw, mtest_sw_beta = \
+        get_synth_inc_beta(topology='sw', folder=folder)
+    formatter = ScalarFormatter(useMathText=True)
+    formatter.set_scientific(True)
+    formatter.set_powerlimits((0, 0))
+
+    fig, axes = plt.subplots(1,2, figsize=(7.5,2.5))
+    ax = axes.flatten()
+    
+    fig2, axes2 = plt.subplots(1,2, figsize=(7.5,2.5))
+    ax2 = axes2.flatten()
+    
+    for mtest, mtest_beta, i, tmax, label \
+            in zip([mtest_ba, mtest_sw],
+                   [mtest_ba_beta, mtest_sw_beta],
+                   range(2), [100,350], 
+                   ['Barabasi-Albert','small world']):
+        l1 = ax[i].plot(np.arange(tmax), mtest.iloc[::10,:tmax].T, 
+                        color='RoyalBlue', alpha=0.1)
+        l2 = ax2[i].plot(np.arange(tmax), 
+                         mtest_beta.iloc[::10,:tmax].T, 
+                         color='gray', alpha=0.05, marker='', ls='-')
+        
+        ax[i].grid() 
+        ax2[i].grid()
+        
+        #ax[i].axes.xaxis.set_ticklabels([])
+        if 'Albert' in label:
+            ax2[i].set_ylim(0,3e-5)
+            ax[i].set_xlim(0, tmax)
+            ax2[i].set_xlim(0, tmax)
+        else:
+            ax2[i].set_ylim(0,1e-4)
+            ax[i].set_xlim(0, tmax)
+            ax2[i].set_xlim(-10, tmax+10)
+    
+        ax[i].set_title(f'Incidence, {label}')
+        ax[i].set_ylabel('Incidence, cases')
+        ax[i].set_xlabel('Time, days')
+        #ax[i].yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
+        ax[i].yaxis.set_major_formatter(FuncFormatter(comma_format))
+        
+        ax2[i].set_title(fr'$\beta_c$, {label}')
+        ax2[i].set_ylabel(r'$\beta_c$')
+        ax2[i].set_xlabel('Time, days')
+    
+        
+        #ax2[i].set_yscale('linear')
+        #ax2[i].ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+        ax2[i].yaxis.set_major_formatter(formatter)
+                
+    fig.tight_layout()
+    fig2.tight_layout()
+    
+    n = ['(a)','(b)','(a)','(b)'][::-1]
+    for ax_i in [ax,ax2]:
+        for i in range(2):
+            ax_i[i].text(-0.1, 1.1, n.pop(),
+                   transform=ax_i[i].transAxes, size=1.5*8)
 
 
 def get_mnames():
@@ -233,13 +333,18 @@ def plot_peaks_ax(ax, idata_ms, sub_labels,
 
 def df_metrics(folder_name, top_name,
                test_suff='', switch='',
-              with_inc=False, trim=False, suff=''):
-    methods = ['last_value',
-                'median_beta', 
-                'regression_beta','lstm_day_E_previous_I',
-              ]
-
-    sw = pd.read_csv(f'{folder_name}/{test_suff}test_files.csv').values[::10]
+              with_inc=False, trim=False, suff='',
+              methods=[]):
+    if not methods:
+        methods = ['last_value',
+                    'median_beta', 
+                    'regression_beta','lstm_day_E_previous_I',
+                  ]
+    if 'sw' in test_suff:
+        sw = pd.read_csv(f'{folder_name}/test_files.csv').values[::10]
+    else:
+        sw = pd.read_csv(f'{folder_name}/{test_suff}test_files.csv').values[::10]
+    
     sww = pd.Series(sw.flatten()).str.split('_',expand=True)
     sww.columns = ['p','beta','gamma','delta','initi',
                    'alpha','seed','nseed']
@@ -408,7 +513,7 @@ def peaks_hmaps(fin, ax=[], n=['a)','b)'],
                        cbar_kws={'extendfrac': .1},
                       xticklabels = 10, yticklabels=10,
                       linewidths=0.0, rasterized=True,)
-    ax_2.set_title('Peak height'+title,
+    ax_2.set_title('Peak incidence'+title,
                    fontsize=1.2*fontsize)
 
     
@@ -422,7 +527,7 @@ def peaks_hmaps(fin, ax=[], n=['a)','b)'],
     for i in [-1,-2]:    
         ax_1.figure.axes[i].tick_params(labelsize=fontsize)
         
-    ax_1.figure.axes[-1].set_ylabel('Fraction of new cases', size=fontsize)
+    ax_1.figure.axes[-1].set_ylabel('Incidence, fraction of population', size=fontsize)
     ax_1.figure.axes[-2].set_ylabel('Day', size=fontsize)
     
     plt.tight_layout()
