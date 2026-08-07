@@ -13,8 +13,9 @@ import seaborn as sns
 
 
 def heatmap_orig_peaks(topology='ba',folder=''):
-    df = pd.read_csv(f'{folder}/{topology}_incidence_100k.csv',
-                    skiprows=lambda x: x > 0 and (x - 1) % 10 != 0)
+    df = pd.read_csv(f'{folder}/{topology}_incidence_100k_10p.csv',
+                    #skiprows=lambda x: x > 0 and (x - 1) % 10 != 0
+    )
     _, df = train_test_split(df, test_size=2400, 
                              random_state=42, stratify=None)
     
@@ -29,12 +30,13 @@ def heatmap_orig_peaks(topology='ba',folder=''):
 
 
 def get_synth_inc_beta(topology='ba', folder=''):
-    qw = pd.read_csv(f'{folder}/{topology}_incidence_100k.csv',
-                    skiprows=lambda x: x > 0 and (x - 1) % 10 != 0)
+    qw = pd.read_csv(f'{folder}/{topology}_incidence_100k_10p.csv',
+                    #skiprows=lambda x: x > 0 and (x - 1) % 10 != 0
+    )
     X = qw.iloc[:,5:]
     _, mtest_inc = train_test_split(X, test_size=2400, 
                                   random_state=42, stratify=None)
-    qw_beta = pd.read_csv(f'{folder}/{topology}_beta_100k.csv')
+    qw_beta = pd.read_csv(f'{folder}/{topology}_beta_100k_10p.csv')
     X_beta = qw_beta.iloc[:,5:]
     _, mtest_beta = train_test_split(X_beta, test_size=2400, 
                                   random_state=42, stratify=None)
@@ -47,7 +49,7 @@ def comma_format(x, pos):
     return f"{int(x)}" 
     
 
-def plot_synth_inc_beta(folder='hybrid_surr/aux_hyb'):
+def plot_synth_inc_beta(folder='hybrid_surr/aux_hyb', save_folder=''):
     mtest_ba, mtest_ba_beta = \
         get_synth_inc_beta(topology='ba', folder=folder)
     mtest_sw, mtest_sw_beta = \
@@ -109,6 +111,10 @@ def plot_synth_inc_beta(folder='hybrid_surr/aux_hyb'):
         for i in range(2):
             ax_i[i].text(-0.1, 1.1, n.pop(),
                    transform=ax_i[i].transAxes, size=1.5*8)
+
+    if save_folder:
+        fig.savefig(f'{save_folder}/plot_synth_inc.png', bbox_inches='tight')
+        fig2.savefig(f'{save_folder}/plot_synth_beta.png', bbox_inches='tight')
 
 
 def get_mnames():
@@ -360,12 +366,13 @@ def df_metrics(folder_name, top_name,
         
     for label in methods:
         try:
+            print(f'{folder_name}/results/{top_name}/{switch}/'+\
+                             f'{label}_results{suff}.csv')
             df = pd.read_csv(f'{folder_name}/results/{top_name}/{switch}/'+\
                              f'{label}_results{suff}.csv')
-
+            print('1')
             if trim:
                 df = df[df[switch]!=0]
-
             df['pt_err'] = df['predicted_peak_day'
                              ] - df['actual_peak_day']
             df['ph_err'] =  df['predicted_peak_I'

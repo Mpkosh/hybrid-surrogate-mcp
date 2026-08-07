@@ -21,7 +21,7 @@ def predict(model, input):
 
 def get_splits_df(folder='', folder_all='',
                   type_df='point',network_type = 'ba',
-                 with_orig_X=False):
+                 with_orig_X=False, search_full=False):
     df = pd.read_csv(folder+f'/{network_type}_{type_df}_dataset.csv', 
                      index_col=0)
     if type_df=='point':
@@ -52,13 +52,16 @@ def get_splits_df(folder='', folder_all='',
     if not with_orig_X:
         return X_train, y_train, X_test, y_test, tmax
     else:
-        # to get stochastic 10 trajectories
-        qw = pd.read_csv(folder_all+f'{network_type}_incidence_100k.csv', index_col=0
-                    ).reset_index(drop=True)
-        qw['group'] = qw.index//10
-        mtr, mtest = train_test_split(X, test_size=2400, 
-                                      random_state=42, stratify=None)
-    
+        if search_full:
+            # to get stochastic 10 trajectories
+            qw = pd.read_csv(folder_all+f'{network_type}_incidence_100k.csv'
+                            ).reset_index(drop=True)
+            qw['group'] = qw.index//10
+            mtr, mtest = train_test_split(X, test_size=2400, 
+                                          random_state=42, stratify=None)
+        else:
+            qw = pd.read_csv(folder_all+f'{network_type}_4id_10samples.csv')
+            mtest=[]
         return X_train, y_train, X_test, y_test, tmax, mtest,qw
 
 def nonlinear_cmap():

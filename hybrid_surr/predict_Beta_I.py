@@ -6,7 +6,7 @@ from tensorflow.keras.models import load_model
 from sklearn.preprocessing import StandardScaler
 from scipy.optimize import curve_fit
 #from statsmodels.tsa.statespace.sarimax import SARIMAXResults
-#import tensorflow as tf
+import tensorflow as tf
 # our functions
 from hybrid_surr import seir_discrete 
 
@@ -76,7 +76,6 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
                  sigma, gamma, features_reg='', model_path='', 
                  seed_name='', window_size=14,
                  modeling_duration=0):
-    
     '''
     Predict Beta values.
 
@@ -95,7 +94,8 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
     predicted_I = np.zeros((count_stoch_line+1, 
                             predicted_days.shape[0]))
     beggining_beta = []
-
+    if modeling_duration==0:
+        modeling_duration = seed_df.shape[0]
     
     if beta_prediction_method == 'last value':
         predicted_beta = [seed_df.iloc[predicted_days[0]]['Beta'] 
@@ -135,8 +135,7 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
             predicted_beta.append(np.exp(pred[0]))
             input_b = np.array([*pred,*input_b.flatten()[:-1]]).reshape(1, -1)
     
-    if modeling_duration==0:
-        modeling_duration = seed_df.shape[0]
+    
     elif beta_prediction_method == 'lstm':
         full_scaler = joblib.load(f'{model_path}.pkl')
         model = load_model(f'{model_path}.keras')
@@ -152,7 +151,6 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
         for i in inp[::-1]:
             predictor.update_buffer([i])
         #print(predictor.buffer)
-        
         predicted_beta = []
         for i in range(predicted_days[0], 
                        modeling_duration):

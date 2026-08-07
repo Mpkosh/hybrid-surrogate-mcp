@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("Hybrid Surrogate Server")
 folder_main = 'hybrid_surr/'
+folder_imgs = 'imgs/'
+search_full=False
+
 
 # --------- hybrid ----------
 @mcp.tool()
@@ -29,16 +32,49 @@ def run_hybrid_once(sigma: float=0.3, gamma: float=0.2,
                         'expanding mean last value',
                         'median beta', 'regression beta', 
                         'lstm']='median beta',
-              seed_numbers:list[int]=[0,10]) -> dict:
+              seed_numbers:list[int]=[93,2390]) -> dict:
+    """
+    Runs the hybrid model: start with the network model, 
+        switch to the hybrid model with a given method of beta (infection transmission rate) prediction. 
+    It returns the figure of predicted time series for incidence and beta.
+
+    Args:
+        sigma (float): The duration of the latent period (where 1/sigma is period in days)
+        gamma (float): The duration of the infectious period (where 1/gamma is period in days)
+        perc_switch (float): Switch to the hybrid model when the fraction 
+            of Infected reaches <perc_switch>.
+        stoch (int): Number of hybrid model runs to calculate interval bounds.
+        topology (str): Short name of the network topology. 
+            'ba' - Barabasi-Albert, 'sw' - small world.
+        beta_pred (str): Method for beta prediction.
+            'last value' - take last known beta value,
+            'expanding mean last value' - take the ,
+            'median beta' - median value of beta on train samples, 
+            'regression beta' - regression model trained for beta prediction, 
+            'lstm' - long short term memory model trained for beta prediction.
+        seed_numbers (list): Indexes of test samples.
+    Returns:
+        dict: A dictionary containing the short result description and metadata
+            about the request (path to the saved figure, 
+            coefficient of determination for test samples, the days of switch for test samples).
+            
+    """
+    
     if topology=='ba':
         suff_m='ba100k'
         #suff='ba100k_10'
-        seed_dirs = '../long_sw_100000_fin/'
+        if search_full:
+            seed_dirs = '../new_ba_100k/new_ba_100k/'
+        else:
+            seed_dirs = f'{folder_main}/aux_hyb/'
         sw = pd.read_csv(f'{folder_main}/aux_hyb/ba_test_files.csv').values
     if topology=='sw':
         suff_m='sw100k'
         #suff='sw100k_10'
-        seed_dirs='../new_ba_100000/'
+        if search_full:
+            seed_dirs = '../new_sw_100k/new_sw_100k/'
+        else:
+            seed_dirs = f'{folder_main}/aux_hyb/'
         sw = pd.read_csv(f'{folder_main}/aux_hyb/test_files.csv').values
         
     seed_numbers = sw[::10][seed_numbers]
@@ -70,7 +106,7 @@ def run_hybrid_once(sigma: float=0.3, gamma: float=0.2,
                             is_filename=True,
                             on_incidence=True,
                             switch_on_incidence=False,
-                            topology=net_type)
+                            topology=topology)
     
     all_peak = pd.DataFrame(all_peak, 
                     columns=['actual_peak_I', 'predicted_peak_I', 
@@ -92,31 +128,66 @@ def run_hybrid_once(sigma: float=0.3, gamma: float=0.2,
     # merging dataframes
     results = pd.concat([rmse_df, all_peak], axis=1)
     
+    plt.savefig(f'{folder_imgs}/run_hybrid_once.png', bbox_inches='tight')
     metadata = {
-        ".": 1,
-        #**artifact_metadata,
+        'R2 for test samples': all_r2_Inc,
+        'Day of switch for test samples': start_days,
+        'Path to the figure':'',
     }
     return {"answer": f'Ran the hybrid model and uploaded the figure {11} to {11}', 
             "metadata": metadata}
 
+
+# ALLOW TO INPUT PATH TO SEIR DF! redo this func as a way to get hybr.predictions
 @mcp.tool()
-def run_hybrid(sigma: float=0.3, gamma: float=0.2, 
+def run_hybrid_methods(sigma: float=0.3, gamma: float=0.2, 
                perc_switch: float=0.01, stoch: int=100, 
                topology: Literal["ba", "sw"]='ba', 
-              methods: list[Literal['last value',
+              beta_pred: list[Literal['last value',
                         'expanding mean last value',
                         'median beta', 'regression beta', 
                         'lstm']]=['median beta'],
-              seed_numbers: list[int]=[0,10]) -> dict:
+              seed_numbers: list[int]=[93,2390]) -> dict:
+    """
+    Runs the hybrid model: start with the network model, 
+        switch to the hybrid model with given methods of beta (infection transmission rate) prediction. 
+    It returns the figure of predicted time series for incidence and beta.
+
+    Args:
+        sigma (float): The duration of the latent period (where 1/sigma is period in days)
+        gamma (float): The duration of the infectious period (where 1/gamma is period in days)
+        perc_switch (float): Switch to the hybrid model when the fraction 
+            of Infected reaches <perc_switch>.
+        stoch (int): Number of hybrid model runs to calculate interval bounds.
+        topology (str): Short name of the network topology. 
+            'ba' - Barabasi-Albert, 'sw' - small world.
+        beta_pred (list): Method for beta prediction.
+            'last value' - take last known beta value,
+            'expanding mean last value' - take the ,
+            'median beta' - median value of beta on train samples, 
+            'regression beta' - regression model trained for beta prediction, 
+            'lstm' - long short term memory model trained for beta prediction.
+        seed_numbers (list): Indexes of test samples.
+    Returns:
+        dict: A dictionary containing the short result description and metadata
+            about the request (path to the saved figure).
+            
+    """
     if topology=='ba':
         suff_m='ba100k'
         suff='ba100k_10'
-        seed_dirs = '../long_sw_100000_fin/'
+        if search_full:
+            seed_dirs = '../new_ba_100k/new_ba_100k/'
+        else:
+            seed_dirs = f'{folder_main}/aux_hyb/'
         sw = pd.read_csv(f'{folder_main}/aux_hyb/ba_test_files.csv').values
     if topology=='sw':
         suff_m='sw100k'
         suff='sw100k_10'
-        seed_dirs='../new_ba_100000/'
+        if search_full:
+            seed_dirs = '../new_sw_100k/new_sw_100k/'
+        else:
+            seed_dirs = f'{folder_main}/aux_hyb/'
         sw = pd.read_csv(f'{folder_main}/aux_hyb/test_files.csv').values
     seed_numbers = sw[::10][seed_numbers]
     #methods = ['last value','expanding mean last value',
@@ -124,15 +195,116 @@ def run_hybrid(sigma: float=0.3, gamma: float=0.2,
     plot_hyb.apply_methods(seed_dirs=seed_dirs,
               seed_numbers=seed_numbers, on_incidence=True,
               switch_on_incidence=False,
-              methods=methods, show_fig_flag=True,
+              methods=beta_pred, show_fig_flag=True,
              is_filename=True, sigma=sigma, gamma=gamma, 
-              perc_switch=perc_switch, stoch=stoch, m_folder=f'{folder_main}/aux_hyb/',
+              perc_switch=perc_switch, stoch=stoch, 
+              m_folder=f'{folder_main}/aux_hyb/',
              suff_m=suff_m, suff=suff)
     
-    #plt.savefig('ii.png', bbox_inches='tight')
+    plt.savefig(f'{folder_imgs}/run_hybrid_methods.png', bbox_inches='tight')
     
     metadata = {
-        ".": 1,
+        #".": 1,
+        #**artifact_metadata,
+    }
+    return {"answer": f"Ran the hybrid model and uploaded the figure {11} to {11}", 
+            "metadata": metadata}
+
+
+@mcp.tool()
+def hybrid_2x2(sigma: float=0.3, gamma: float=0.2, 
+               perc_switch: float=0.05, stoch: int=10, 
+               topology: Literal["ba", "sw"]='ba', 
+               beta_pred: list[Literal['last value',
+                        'expanding mean last value',
+                        'median beta', 'regression beta', 
+                        'lstm']]=['regression beta', 'lstm'],
+              seed_numbers: list[int]=[93,2390]) -> dict:
+    """
+    Runs the hybrid model: start with the network model, 
+        switch to the hybrid model with given methods of beta (infection transmission rate) prediction. 
+    It returns the figure 2x2 of predicted time series for incidence and beta.
+
+    Args:
+        sigma (float): The duration of the latent period (where 1/sigma is period in days) 
+        gamma (float): The duration of the infectious period (where 1/gamma is period in days) 
+        perc_switch (float): Switch to the hybrid model when the fraction 
+            of Infected reaches <perc_switch>.
+        stoch (int): Number of hybrid model runs to calculate interval bounds.
+        topology (str): Short name of the network topology. 
+            'ba' - Barabasi-Albert, 'sw' - small world.
+        beta_pred (list): Method for beta prediction.
+            'last value' - take last known beta value,
+            'expanding mean last value' - take the ,
+            'median beta' - median value of beta on train samples, 
+            'regression beta' - regression model trained for beta prediction, 
+            'lstm' - long short term memory model trained for beta prediction.
+        seed_numbers (list): Indexes of test samples.
+    Returns:
+        dict: A dictionary containing the short result description and metadata
+            about the request (path to the saved 2x2 figure, 
+            coefficient of determination for test samples, the days of switch for test samples).
+    """
+    
+    fig, ax = plt.subplots(2,2, figsize=(10, 6))
+    ax = ax.flatten()
+    
+    if topology=='ba':
+        suff_m='ba100k'
+        suff='ba100k_10'
+        sw = pd.read_csv(f'{folder_main}/aux_hyb/ba_test_files.csv').values
+        if search_full:
+            seed_dirs = '../new_ba_100k/new_ba_100k/'
+        else:
+            seed_dirs = f'{folder_main}/aux_hyb/'
+    if topology=='sw':
+        suff_m='sw100k'
+        suff='sw100k_10'
+        sw = pd.read_csv(f'{folder_main}/aux_hyb/test_files.csv').values
+        if search_full:
+            seed_dirs = '../new_sw_100k/new_sw_100k/'
+        else:
+            seed_dirs = f'{folder_main}/aux_hyb/'
+    
+    seed_numbers = sw[::10][seed_numbers]
+    
+    types_start_day = ['fraq_people']
+    j=0
+    labs = ['(a)','(b)','(c)','(d)'][::-1]
+    r2s = []
+    switches=[]
+    
+    for k in seed_numbers:
+        for method in beta_pred:
+            if 'median' in method:
+                model_path = f'{folder_main}/aux_hyb/{suff_m}_median_beta.csv'
+            elif 'regression beta' in method:
+                model_path = f'{folder_main}/aux_hyb/{suff_m}_regression_bt.joblib'
+            elif 'lstm' in method:
+                model_path = f'{folder_main}/aux_hyb/{suff_m}_lstm_4_001_s10'   
+            else:
+                model_path=''
+            _, _, _, _, all_r2_Inc, _, _, all_peak,\
+                _, start_days = plot_hyb.main_f(I_prediction_method='seir', 
+                                count_stoch_line=stoch, 
+                                beta_prediction_method=method, 
+                                type_start_day=types_start_day[0], 
+                                seed_numbers=[k], show_fig_flag=True,
+                                seed_dirs=seed_dirs, sigma=sigma, gamma=gamma, 
+                                ax=[ax[j]], model_path=model_path,perc_switch=perc_switch,
+                                is_filename=True,on_incidence=True,
+                            switch_on_incidence=False)
+            r2s.append(all_r2_Inc[0])
+            switches.append(start_days[0])
+            ax[j].text(-0.1, 1.1, labs.pop(),
+                       transform=ax[j].transAxes, size=15)
+            j+=1
+    
+    plt.savefig(f'{folder_imgs}/hybrid_2x2.png', bbox_inches='tight')
+    
+    metadata = {
+        'R2 for test samples': r2s,
+        'Days of switch for test samples': switches,
         #**artifact_metadata,
     }
     return {"answer": f'Ran the hybrid model and uploaded the figure {11} to {11}', 
@@ -144,8 +316,23 @@ def run_hybrid(sigma: float=0.3, gamma: float=0.2,
 def surrogate_point_2x2(topology:Literal["ba","sw"]='ba',
                           test_indices:list[int] = [11,7,1,15],
                     ) -> dict:
+    """
+    Runs the surrogate model: use the trained autoencoder model to output incidence time series. 
+    It returns the figure 2x2 of predicted time series for incidence and beta.
+
+    Args:
+        topology (str): Short name of the network topology. 
+            'ba' - Barabasi-Albert, 'sw' - small world.
+        test_indices (list): Indexes of test samples.
+    Returns:
+        dict: A dictionary containing the short result description and metadata
+            about the request (path to the saved 2x2 figure, 
+            coefficient of determination for test samples, 
+            alpha (fraction of non-immune individuals) and beta (infection transmission rate) for chosen test samples).
+            
+    """
     type_df = 'point'
-    ae = torch.load(f'{folder_main}/models/autoencoder_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/calibr/models/autoencoder_{topology}_100k_n.pt', 
                     weights_only=False)
     X_train, y_train, X_test, y_test,tmax = \
         surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
@@ -156,7 +343,7 @@ def surrogate_point_2x2(topology:Literal["ba","sw"]='ba',
     labels = ['(a)', '(b)', '(c)', '(d)']
     counter = 0
     cut = 100
-    alpha_beta, r2s = [], []
+    beta_alpha, r2s = [], []
     for row in range(rows):
         for col in range(cols):
             surrogate_sim = surr_funcs.predict(ae, 
@@ -165,7 +352,7 @@ def surrogate_point_2x2(topology:Literal["ba","sw"]='ba',
             r2 = r2_score(y_test[test_indices[counter]], surrogate_sim)
             #print(labels[counter], test_indices[counter], X_test[test_indices[counter]])
             r2s.append(r2)
-            alpha_beta.append(X_test[test_indices[counter]])
+            beta_alpha.append(X_test[test_indices[counter]])
             
             ax[row][col].plot(y_test[test_indices[counter]][:cut], 
                               label='Network model', marker='o', 
@@ -188,29 +375,32 @@ def surrogate_point_2x2(topology:Literal["ba","sw"]='ba',
             counter += 1
     
     plt.tight_layout()
-    
+    plt.savefig(f'{folder_imgs}/surrogate_point_2x2.png', bbox_inches='tight')
     metadata = {
         'R2 for test samples': r2s,
-        'Alpha and beta of test samples': alpha_beta,
-        #**artifact_metadata,
+        'Alpha of test samples': list(np.array(beta_alpha)[:,1]),
+        'Beta of test samples': list(np.array(beta_alpha)[:,0]),
     }
+    print(metadata)
     return {"answer": f'Uploaded the figure {11} to {11}', 
             "metadata": metadata}
 
 
 @mcp.tool()
 def surrogate_interval_2x2(topology:Literal["ba","sw"]='ba',
-                          test_indices:list[int] = [1100,7,1,150],
+                          test_indices:list[int] = [1101,7,1,150],
                     ) -> dict:
     type_df = 'interval'
-    ae = torch.load(folder_main+f'/models/autoencoder_interval_{topology}_100k_n.pt', 
+    ae = torch.load(folder_main+f'/calibr/models/autoencoder_interval_{topology}_100k_n.pt', 
                     weights_only=False)
-
+    
     X_train, y_train, X_test, y_test, tmax, mtest,qw = \
                     surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
+                                             folder_all=folder_main+'aux_hyb/',
                                              type_df=type_df,
                                              network_type = topology,
-                                             with_orig_point_test=True)
+                                             with_orig_X=True,
+                                            search_full=search_full)
 
     fontsize = 11
     rows, cols = 2, 2
@@ -222,21 +412,26 @@ def surrogate_interval_2x2(topology:Literal["ba","sw"]='ba',
     low_index = range(tmax, 2*tmax)
     high_index = range(2*tmax, 3*tmax)
     cut = 100
-    r2s, alpha_beta = [], []
+    r2s, beta_alpha = [], []
     for row in range(rows):
         for col in range(cols):
             surrogate_sim = surr_funcs.predict(ae, X_test[test_indices[counter]]).numpy()
             r2 = r2_score(y_test[test_indices[counter]], surrogate_sim)
             r2s.append(r2)
-            alpha_beta.append(X_test[test_indices[counter]])
+            b,a = X_test[test_indices[counter]]
+            beta_alpha.append([b,a])
         
             gt = np.array(y_test[test_indices[counter]])
             
             ax[row][col].plot(gt[mean_index][:cut], label='Network model, mean', 
                               marker='', color='OrangeRed')
-            
-            real_idx = mtest.iloc[test_indices[counter]].name
-            part = qw[qw.group==real_idx].iloc[:,5:-1]
+            if search_full:
+                real_idx = mtest.iloc[test_indices[counter]].name
+                part = qw[qw.group==real_idx].iloc[:,5:-1]
+            else:
+                part = qw[(qw.beta.round(2)==round(b,2))&(
+                            qw.alpha.round(2)==round(a,2))
+                        ].iloc[:,5:-1]
             part.columns = part.columns.astype(int)
             ax[row][col].plot(part.T, color='OrangeRed', ls=':', alpha=.5,
                              label=['Network model, trajectory']+['']*9)
@@ -269,13 +464,11 @@ def surrogate_interval_2x2(topology:Literal["ba","sw"]='ba',
             counter += 1
     
     plt.tight_layout()
-    '''
-    fig.savefig('../figures/ae_ba_network_subplots_interval_estimation.pdf', bbox_inches='tight')
-    fig.savefig('../figures/ae_ba_network_subplots_interval_estimation.png', dpi=150, bbox_inches='tight')
-    '''
+    plt.savefig(f'{folder_imgs}/surrogate_interval_2x2.png', bbox_inches='tight')
     metadata = {
         'R2 for test samples': r2s,
-        'Alpha and beta of test samples': alpha_beta,
+        'Alpha of test samples': list(np.array(beta_alpha)[:,1]),
+        'Beta of test samples': list(np.array(beta_alpha)[:,0]),
         #**artifact_metadata,
     }
     return {"answer": f'Uploaded the figure {11} to {11}', 
@@ -286,7 +479,7 @@ def surrogate_interval_2x2(topology:Literal["ba","sw"]='ba',
 def surrogate_heatmap_r2(topology:Literal["ba","sw"]='ba',
                     ) -> dict:
     type_df = 'point'
-    ae = torch.load(f'{folder_main}/models/autoencoder_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/calibr/models/autoencoder_{topology}_100k_n.pt', 
                     weights_only=False)
     X_train, y_train, X_test, y_test,tmax = \
         surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
@@ -295,7 +488,7 @@ def surrogate_heatmap_r2(topology:Literal["ba","sw"]='ba',
                                    X_test, y_test, tmax)
     
     type_df = 'interval'
-    ae = torch.load(f'{folder_main}/models/autoencoder_interval_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/calibr/models/autoencoder_interval_{topology}_100k_n.pt', 
                     weights_only=False)
     X_train, y_train, X_test, y_test,tmax = \
         surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
@@ -342,6 +535,7 @@ def surrogate_heatmap_r2(topology:Literal["ba","sw"]='ba',
     #ax_1.figure.axes[-2].set_ylabel(r'$R^2$', size=fontsize)
     
     plt.tight_layout()
+    plt.savefig(f'{folder_imgs}/surrogate_heatmap_r2.png', bbox_inches='tight')
     metadata = {
         #**artifact_metadata,
     }
@@ -352,7 +546,7 @@ def surrogate_heatmap_r2(topology:Literal["ba","sw"]='ba',
 # --------- calibrations/forecasts ----------
 @mcp.tool()
 def calibrate_model_complete_data(model_name:Literal["hybrid", "network",'surrogate']='hybrid',
-                    n_hyb_runs:int=1, nth:int=5,
+                    n_network_runs:int=1, show_surr_nth_line:int=5,
                                   true_tau:float = 0.1,
                               true_alpha:float = 0.95,
                                  topology:Literal["ba","sw"]='ba',) -> dict:
@@ -391,9 +585,8 @@ def calibrate_model_complete_data(model_name:Literal["hybrid", "network",'surrog
         
     beta_mode, alpha_mode = plot_funcs.plot_calib(observed_data, idata, 
                true_tau, true_alpha, network_params, 
-               n_hyb_runs=n_hyb_runs, nth=nth)
-    #plt.savefig(f'results/ba_hybrid.pdf', format='pdf', bbox_inches='tight')
-    
+               n_hyb_runs=n_network_runs, nth=show_surr_nth_line)
+    plt.savefig(f'{folder_imgs}/calibrate_model_complete_data.png', bbox_inches='tight')
 
     metadata = {
         "beta_mode":beta_mode,
@@ -405,7 +598,7 @@ def calibrate_model_complete_data(model_name:Literal["hybrid", "network",'surrog
 
 
 @mcp.tool()
-def calibrate_model_complete_data_3in1(n_hyb_runs:int=1, nth:int=5,
+def calibrate_model_complete_data_3in1(n_network_runs:int=1, show_surr_nth_line:int=5,
                                        true_tau:float = 0.1,
                               true_alpha:float = 0.95,
                                       topology:Literal["ba","sw"]='ba',) -> dict:
@@ -464,7 +657,7 @@ def calibrate_model_complete_data_3in1(n_hyb_runs:int=1, nth:int=5,
     idatas[-1] = idatas[-1].rename({"beta": "tau"})
     
     beta_modes, alpha_modes = [],[]
-    for gs_0i, gs_1i, idata_i,idx  in zip([gs00,gs01,gs02],
+    for gs_0i, gs_1i, idata_i,idx in zip([gs00,gs01,gs02],
                                  [gs10,gs11,gs12],
                                  idatas,
                                      np.arange(3)):
@@ -488,8 +681,8 @@ def calibrate_model_complete_data_3in1(n_hyb_runs:int=1, nth:int=5,
     
         beta_mode, alpha_mode = plot_funcs.plot_calib(observed_data, idata_i, 
                        true_tau, true_alpha, 
-                       network_params, pred=False,nth=nth,
-                              n_hyb_runs=n_hyb_runs,
+                       network_params, pred=False,nth=show_surr_nth_line,
+                              n_hyb_runs=n_network_runs,
                              ax_curves=[ax_curves],
                              ax_kde=[ax_up,ax_scatter,ax_right])
         fontsize=14
@@ -498,7 +691,8 @@ def calibrate_model_complete_data_3in1(n_hyb_runs:int=1, nth:int=5,
                                fontsize=1.5*fontsize, ha='right', va='baseline')
         beta_modes.append(beta_mode)
         alpha_modes.append(alpha_mode)
-
+        
+    plt.savefig(f'{folder_imgs}/calibrate_model_complete_data_3in1.png', bbox_inches='tight')
     metadata = {
         "beta_modes":beta_modes,
         "alpha_modes":alpha_modes,
@@ -511,7 +705,7 @@ def calibrate_model_complete_data_3in1(n_hyb_runs:int=1, nth:int=5,
 @mcp.tool()
 def calibrate_model_forecast(model_name:Literal["hybrid",
                              'surrogate']='hybrid',
-                    n_hyb_runs:int=1, nth:int=5,
+                    show_surr_nth_line:int=5,
                     start_pred:Literal["14b","7b","7a"]='14b',
                              topology:Literal["ba","sw"]='ba',
                              true_tau:float = 0.1,
@@ -544,9 +738,9 @@ def calibrate_model_forecast(model_name:Literal["hybrid",
 
     beta_mode, alpha_mode = plot_funcs.plot_calib(observed_data, idata, 
                        true_tau, true_alpha, 
-                       network_params, pred=True, nth = nth)
+                       network_params, pred=True, nth = show_surr_nth_line)
     
-    #plt.savefig(f'results/ba_pred_eps1000.pdf', format='pdf', bbox_inches='tight')
+    plt.savefig(f'{folder_imgs}/calibrate_model_forecast.png', bbox_inches='tight')
     metadata = {
         "beta_mode":beta_mode,
         "alpha_mode":alpha_mode,
@@ -559,7 +753,7 @@ def calibrate_model_forecast(model_name:Literal["hybrid",
 @mcp.tool()
 def calibrate_model_forecast_3in1(model_name:Literal["hybrid",
                              'surrogate']='hybrid',
-                    n_hyb_runs:int=1,nth:int=5,
+                   show_surr_nth_line:int=5,
                                   true_tau:float = 0.1,
                               true_alpha:float = 0.95,
                                  topology:Literal["ba","sw"]='ba',) -> dict:
@@ -632,7 +826,7 @@ def calibrate_model_forecast_3in1(model_name:Literal["hybrid",
         beta_mode, alpha_mode = plot_funcs.plot_calib(observed_data, idata_i, 
                        true_tau, true_alpha, 
                        network_params, pred=True,
-                              nth=nth,
+                              nth=show_surr_nth_line,
                              ax_curves=[ax_curves],
                              ax_kde=[ax_up,ax_scatter,ax_right])
         beta_modes.append(beta_mode)
@@ -642,6 +836,7 @@ def calibrate_model_forecast_3in1(model_name:Literal["hybrid",
                                xytext=(-30, -50), textcoords='offset points',
                                fontsize=1.5*fontsize, ha='right', va='baseline')
         
+    plt.savefig(f'{folder_imgs}/calibrate_model_forecast_3in1.png', bbox_inches='tight')
     metadata = {
         "beta_modes":beta_modes,
         "alpha_modes":alpha_modes,
@@ -667,6 +862,7 @@ def plot_synth_peaks() -> dict:
     aux_f.peaks_hmaps(heat_orig, with_inc=True, 
                       title=', small world', 
                       ax=[ax[1],ax[3]], n=['(b)','(d)'])
+    plt.savefig(f'{folder_imgs}/plot_synth_peaks.png', bbox_inches='tight')
     metadata = {
         #**artifact_metadata,
     }
@@ -676,10 +872,12 @@ def plot_synth_peaks() -> dict:
 
 @mcp.tool()
 def plot_synth_inc_beta() -> dict:
-    aux_f.plot_synth_inc_beta(folder=f'{folder_main}/aux_hyb/')
+    aux_f.plot_synth_inc_beta(folder=f'{folder_main}/aux_hyb/',
+                             save_folder=folder_imgs)
     metadata = {
         #**artifact_metadata,
     }
+    
     return {"answer": f'Uploaded the figures {11} and {11} to {11}', 
             "metadata": metadata}
 
@@ -694,7 +892,9 @@ def plot_forecast_peak_errors(start_preds:list[Literal["14b","7b","7a"]]=\
     top=topology
     folder = f'{folder_main}/calibr/'
     observed_data = pd.read_csv(folder+f'observed_incidence_a{true_alpha}_b{true_tau}.csv'
-                               ).iloc[:100]
+                               )#.iloc[:100]
+    if topology=='ba':
+        observed_data = observed_data.iloc[:100]
     observed_data.columns=['incidence']
     model_strs = ['hyb','surr']
     idatas = [[az.from_netcdf(folder+\
@@ -709,6 +909,7 @@ def plot_forecast_peak_errors(start_preds:list[Literal["14b","7b","7a"]]=\
                      with_outliers=True, same_lims=True, 
                      figsize=(3.6*len(idatas),4), x_lim = (-30, 30), y_lim = (0, 1.5),
                      alpha_m=0.08, alpha_area=0.3, save=False)
+    plt.savefig(f'{folder_imgs}/plot_forecast_peak_errors.png', bbox_inches='tight')
     metadata = {
         #**artifact_metadata,
     }
@@ -735,6 +936,7 @@ def plot_heatmap_r2(topology:Literal["ba","sw"]='ba',
                        exclude=['Cumulative Average',
                                 'Exponential Decay'],
                         save=False)
+    plt.savefig(f'{folder_imgs}/plot_heatmap_r2.png', bbox_inches='tight')
     metadata = {
         #**artifact_metadata,
     }
@@ -755,7 +957,7 @@ def plot_heatmap_switch(topology:Literal["ba","sw"]='ba',
                        trim=False, suff=f'_{topology}100k_sI_fullR_{switch_perc}')
     
     aux_f.smth_hmaps(fin_inc, 21)
-    
+    plt.savefig(f'{folder_imgs}/plot_heatmap_switch.png', bbox_inches='tight')
     metadata = {
         #**artifact_metadata,
     }

@@ -9,10 +9,13 @@ import os
 # our functions
 from hybrid_surr import predict_Beta_I
 from hybrid_surr import choice_start_day
-
+from matplotlib.ticker import ScalarFormatter
 import warnings
 warnings.filterwarnings(action='ignore')
 
+formatter = ScalarFormatter(useMathText=True)
+formatter.set_scientific(True)
+formatter.set_powerlimits((0, 0))
 
 def plot_one(ax, chosen_col,
              predicted_days, seed_df, predicted_I, 
@@ -155,7 +158,7 @@ def plot_one(ax, chosen_col,
                 label=f'IBM {chosen_col}')
         ax.plot(predicted_days, to_plot[0],color='red', ls='-', 
                   alpha=0.9,
-                label=f'SEIR {chosen_col} ($R^2$ = {r2_Inc:.3f})')
+                label=f'SEIR {chosen_col}\n($R^2$ = {r2_Inc:.3f})')
 
         # add axis labels
         ax.set_xlabel('Time, days')
@@ -176,7 +179,7 @@ def plot_one(ax, chosen_col,
         ax_b.set_ylabel(r'$\beta_c$')
 
         ax_b.set_ylim(0, np.max(actual_Beta[:100])*1.1)
-
+        ax_b.yaxis.set_major_formatter(formatter)
         # add legend and titles
         lines1, labels1 = ax.get_legend_handles_labels()
         lines2, labels2 = ax_b.get_legend_handles_labels()
@@ -450,6 +453,7 @@ def main_f(I_prediction_method, count_stoch_line,
     Output:
         Graph for seeds.
     '''
+    
     features_reg = ''
     if (ax is None) and (show_fig_flag):
         row_n = len(seed_numbers)//2+math.ceil(len(seed_numbers)%2)
@@ -671,7 +675,7 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                   'lstm_day_E_previous_I']
     if len(methods):
         idx_s = 0
-        idx_e = len(methods)-1
+        idx_e = len(methods)
     else:
         methods = ['last value','expanding mean last value',
                'median beta','regression beta', 'lstm']
@@ -735,7 +739,7 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                 print(e)
                 
             if not show_fig_flag:
-                path = f'results/{folder_name}/{type_start_day}/'
+                path = f'{m_folder}/results/{folder_name}/{type_start_day}/'
                 if not os.path.exists(path):
                     os.makedirs(path)
                 results.to_csv(f'{path}/{new_label}_results_{suff}.csv', 

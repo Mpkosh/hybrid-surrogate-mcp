@@ -7,10 +7,7 @@ sys.path.append(os.path.abspath("hybrid_surr/calibr"))
 
 class AESurrogateModel():
     def __init__(self, population: int, topology='ba'):
-        if topology == 'ba':
-            filen = 'autoencoder_barabasi_100k_n'
-        else:
-            filen = 'autoencoder_sw_100k_n'
+        filen = f'autoencoder_{topology}_100k_n'
         self.model = torch.load(f'hybrid_surr/calibr/models/{filen}.pt',
                                 weights_only=False)
         self.model.eval()
