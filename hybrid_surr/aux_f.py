@@ -112,13 +112,9 @@ def plot_synth_inc_beta(folder='hybrid_surr/aux_hyb', save_folder=''):
             ax_i[i].text(-0.1, 1.1, n.pop(),
                    transform=ax_i[i].transAxes, size=1.5*8)
 
-    #if save_folder:
-    path1 = f'{save_folder}/plot_synth_inc.png'
-    fig.savefig(path1, bbox_inches='tight')
-    path2 = f'{save_folder}/plot_synth_beta.png'
-    fig2.savefig(path2, bbox_inches='tight')
-    
-    return path1, path2
+    if save_folder:
+        fig.savefig(f'{save_folder}/plot_synth_inc.png', bbox_inches='tight')
+        fig2.savefig(f'{save_folder}/plot_synth_beta.png', bbox_inches='tight')
 
 
 def get_mnames():
@@ -138,6 +134,86 @@ def get_mnames():
     return clean_mnames, methods
 
 
+def create_boxplots(folder='', switch='', suff='', 
+                    with_inc=False, trim=False,
+                    save_fig=False, figsize=(8,4),
+                   cut_lim=False):
+    
+    clean_mnames, methods = get_mnames()
+    fig = plt.figure(figsize=figsize) 
+    gs = gridspec.GridSpec(1, 2, width_ratios=[3,2]) 
+
+    ax_list = []    
+    max_list = []
+    
+    if with_inc:
+        metric = 'rmse_Inc'
+    else:
+        metric = 'rmse_I'
+        
+    for i in range(len(methods)):
+        rmse_df = pd.DataFrame()
+        
+        for method, label in zip(methods[i], clean_mnames[i]):
+            try:
+                # loading data from CSV
+                df = pd.read_csv(f'results/{folder}/'+switch+\
+                                 f'/{method}_results{suff}.csv')
+                if trim:
+                    df = df[df['actual_peak_I']>1000]
+                
+                rmse_df[f"{label}"] = df[metric]
+                print(f'Mean RMSE for {label}',
+                      df[metric].mean().round(2), '+-',
+                     df[metric].std().round(2))
+            
+            except FileNotFoundError:
+                rmse_df[f"{label}"
+                       ] = 0#pd.DataFrame([0]*n_seeds)
+                print(f'---- No data for {label} ----')
+                pass
+        q_max = (rmse_df.quantile(.75) + 1.5*\
+                    (rmse_df.quantile(.75) - rmse_df.quantile(.25)
+                     )
+                )
+        m_max = rmse_df.quantile(1)
+        # sometimes q3 + 1.5*iqr is larger the the max val
+        # => we find the min among them
+        largest_v = np.min([q_max.values, m_max.values], 0).max()
+         
+        max_list.append(largest_v)
+        # creating a boxplot
+        ax = plt.subplot(gs[i])
+        box = ax.boxplot(rmse_df[clean_mnames[i]], 
+                         showfliers=True, 
+                          medianprops=dict(color='OrangeRed',
+                                           linewidth=1.5), 
+                          widths=0.5, patch_artist=True)
+        
+        median_c = (1.0, 0.7, 0.7, 0.2)
+        for n, patch in enumerate(box['boxes']):
+            patch.set(facecolor=median_c, linewidth=1) 
+
+        if i==0:
+            ax.set_ylabel('RMSE')
+        
+        ax.set_xticks(ticks=np.arange(1, len(methods[i])+1), 
+                      labels=clean_mnames[i], rotation=30, ha='right')
+        ax.grid()  
+        ax_list.append(ax)
+
+    plt.tight_layout()
+    
+    if cut_lim:
+        for ax in ax_list:
+            ax.set_ylim(-500, np.max(max_list)*1.1) 
+    if save_fig:
+        plt.savefig(f'results/{folder}/{switch}'+\
+                    f'/{metric}_3{suff}.pdf', 
+                    format='pdf', bbox_inches='tight')
+        
+    return rmse_df
+        
         
 def create_peak_plot(folder_name='',observed_data = '',
                      idatas='',
@@ -248,8 +324,7 @@ def plot_peaks_ax(ax, idata_ms, sub_labels,
                     alpha=alpha_area, color=col)
             
         except FileNotFoundError:
-            pass
-            #print(f'---- No data for {name} ----')
+            print(f'---- No data for {name} ----')
 
     ax.grid()
     ax.set_xlabel('Peak time difference')
@@ -291,10 +366,11 @@ def df_metrics(folder_name, top_name,
         
     for label in methods:
         try:
-            
+            print(f'{folder_name}/results/{top_name}/{switch}/'+\
+                             f'{label}_results{suff}.csv')
             df = pd.read_csv(f'{folder_name}/results/{top_name}/{switch}/'+\
                              f'{label}_results{suff}.csv')
-
+            print('1')
             if trim:
                 df = df[df[switch]!=0]
             df['pt_err'] = df['predicted_peak_day'
@@ -310,7 +386,7 @@ def df_metrics(folder_name, top_name,
             for met in fin_m:
                 fin[f'{met}.{label}'] = df[met]
         except FileNotFoundError:
-            
+            #print(f'results/{folder_name}/{switch}/'+\f'{label}_results{suff}.csv')
             pass    
     fin['switch'] = df[switch]      
     fin['days_before_peak'] = df['actual_peak_day']-df[switch]      

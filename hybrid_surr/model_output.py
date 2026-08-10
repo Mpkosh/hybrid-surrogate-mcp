@@ -12,8 +12,8 @@ class SEIRParams:
 
     def __call__(self):
         params = self.as_list()
-        #print('beta: {}, gamma: {}, delta: {}, init_inf_frac: {}, init_rec_frac: {}'.format(
-            #*np.round(params, 2)))
+        print('beta: {}, gamma: {}, delta: {}, init_inf_frac: {}, init_rec_frac: {}'.format(
+            *np.round(params, 2)))
         return params
 
     def as_list(self):

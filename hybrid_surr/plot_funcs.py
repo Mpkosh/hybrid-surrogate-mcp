@@ -41,7 +41,7 @@ def plots(idata, data, title, with_trace=False,
         switchpoint=0
         fin_size = data.shape[0]
     
-    #print(p0_mode,p1_mode)
+    print(p0_mode,p1_mode)
     timespace = np.arange(len(data))
     
     data_part = data
@@ -82,7 +82,7 @@ def plots(idata, data, title, with_trace=False,
                                    fin_size),
                          sim_part[switchpoint:fin_size], 
                         color='RoyalBlue', alpha=0.05) 
-    #print('sim plot time', time.time()-a)
+    print('sim plot time', time.time()-a)
     if pred:
         label='Forecast'
     else:
@@ -95,7 +95,7 @@ def plots(idata, data, title, with_trace=False,
     
     all_r = []
     all_q = []    
-    #print(num_runs)
+    print(num_runs)
     if not pred:
         if num_runs[0]>0:
             for j in range(n_hyb_runs):

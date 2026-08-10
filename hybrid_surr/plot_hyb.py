@@ -204,6 +204,225 @@ def plot_one(ax, chosen_col,
     return rmse_I, rmse_Inc, rmse_Beta, r2, r2_Inc, r2_I_full, r2_Inc_full, peak
 
 
+def main_f_Inc(I_prediction_method, count_stoch_line, 
+           beta_prediction_method, type_start_day, seed_numbers,
+           show_fig_flag, seed_dirs='test/', sigma=0.1, gamma=0.08,
+           ax = None, model_path='', perc_switch=0.01,
+          is_filename=False, on_incidence=False,
+          switch_on_incidence=False,detailed=False,
+          topology='ba'):
+    '''
+    Main function
+    
+    Parameters:
+    - I_prediction_method -- model for constructing the trajectory of Infected
+        ['seir']
+    - stochastic -- presence of predicted stochastic trajectories of Infected 
+    - count_stoch_line -- number of predicted stochastic trajectories
+    - beta_prediction_method -- method for predicting Beta values
+        ['last_value',
+        'expanding mean last value',
+        'median beta',
+        'regression beta '
+        'lstm']
+    - type_start_day -- type of choosing the switching day for the model 
+        (changing or constant)
+    - seed_numbers -- seed numbers for the experiments
+    - show_fig_flag -- flag to show the plots
+    
+    Output:
+        Graph for seeds.
+    '''
+    features_reg = ''
+    if (ax is None) and (show_fig_flag):
+        row_n = len(seed_numbers)//2+math.ceil(len(seed_numbers)%2)
+        fig, axes = plt.subplots(row_n, 2, figsize=(10, row_n*3), squeeze=False)
+        axes = axes.flatten()
+        #axes = np.arange(len(seed_numbers))
+    elif not show_fig_flag:
+        axes=[0]
+    else:
+        row_n=0
+        axes = ax
+        
+    if count_stoch_line>0:
+        stochastic = True
+    else:
+        stochastic = False
+    #print(beta_prediction_method)
+    # list of RMSE Beta and I for each seed 
+    all_rmse_I, all_rmse_Inc = [], []
+    all_rmse_Beta = []
+    all_r2, all_r2_Inc = [], []
+    all_r2_full, all_r2_Inc_full = [], []
+    all_peak = []
+    start_days = []
+    execution_time = []
+    df_on_switch = []
+    
+    for idx, seed_number in enumerate(seed_numbers):
+        
+        # read the DataFrame of the seed: S,[E],I,R,Beta
+        if is_filename:
+            _, beta, gc,dc, initi, alpha, _, seed = seed_number[0].split('_')
+            
+            if topology=='sw':
+                filen = f'p_{round(float(beta), 2)}_{gc}_{dc}_{initi}_{round(float(alpha), 2)}_seed_{seed}' 
+                seed_df = pd.read_csv(seed_dirs+filen)
+            else:
+                seed_df = pd.read_csv(seed_dirs+seed_number[0])
+            #print(seed_dirs+seed_number[0])
+            window_size = 4
+        else:
+            seed_df = pd.read_csv(seed_dirs+f'seir_seed_{seed_number}.csv')
+            window_size = 4
+            
+        #seed_df = seed_df.iloc[:,:5].copy()
+        #seed_df.columns = ['S','E','I','R','Beta']
+        
+        chosen_col='I'
+        # calculating Incidence if needed
+        if on_incidence:
+            chosen_col='incidence'
+            temp = seed_df[['E','S']].shift([0,1])
+            # Inc_t = (E_t-1 - E_t) - (S_t - S_t-1)
+            seed_df['incidence'] = (temp['E_1'] - temp['E_0']) - \
+                                (temp['S_0'] - temp['S_1'])
+        else:    
+            seed_df['incidence'] = 0
+        #seed_df = seed_df[(seed_df['E'] > 0)|(seed_df['I'] > 0)].fillna(0)
+              
+        seed_df = seed_df.fillna(0)
+        seed_df.replace([np.inf, -np.inf], 0, inplace=True)
+        
+        # switch moment
+        pop = seed_df.iloc[0,:4].sum()
+        n_people = pop*perc_switch
+   
+        #if idx==0:
+        #    print(pop, perc_switch, n_people)
+        if switch_on_incidence:
+            switch_col='incidence'
+        else:
+            switch_col='I'
+        start_day = choice_start_day.choose_method(switch_col,seed_df, 
+                                                   type_start_day,
+                                                   min_day=window_size,
+                                                   frac=perc_switch,
+                                                   n_people=n_people)
+        print(start_day,n_people,type_start_day,perc_switch)
+        '''
+        # ЗА сколько ДО пика
+        if not isinstance(type_start_day, str):
+            start_day = seed_df[switch_col].argmax() - start_day
+        '''
+        start_days.append(start_day)
+        # choosing the days for prediction
+        predicted_days = np.arange(start_day, seed_df.shape[0])
+        start_time = time.time()
+        
+        if count_stoch_line>0:
+            stochastic=True
+
+        # prediction of Beta values and calculation of prediction time
+        beggining_beta, predicted_beta, \
+            predicted_I = predict_Beta_I.predict_beta(
+                            I_prediction_method, seed_df,
+                            beta_prediction_method, 
+                            predicted_days, stochastic, 
+                            count_stoch_line, sigma, gamma,
+                            features_reg, model_path, window_size,
+                            seed_dirs+seed_number[0])
+        
+        predicted_Inc = np.zeros((count_stoch_line+1, 
+                                  predicted_days.shape[0]))
+        
+        # use predicted Beta values for predicting I
+        # extract compartment values on the switch day
+        y = seed_df.iloc[predicted_days[0],:4]
+        # predict the Infected compartment trajectory
+        
+        ss,ee,predicted_I[0],\
+            _ = predict_Beta_I.predict_I(I_prediction_method, y,
+                                          predicted_days-start_day,
+                                          predicted_beta,
+                                          sigma, gamma, 'det')
+        # Inc_t = (E_t-1 - E_t) - (S_t - S_t-1)
+        if on_incidence:
+            # Inc_t = (E_t-1 - E_t) - (S_t - S_t-1)
+            from_last = seed_df['incidence'].iloc[predicted_days[0]]
+            predicted_Inc[0] = np.append(from_last, 
+                                       (ee[:-1] - ee[1:]) - \
+                                           (ss[1:] - ss[:-1]))
+            predicted_Inc[0][predicted_Inc[0]<0] = 0
+            
+        if stochastic:
+            for i in range(count_stoch_line):
+                ss,ee,predicted_I[i+1],_ \
+                    = predict_Beta_I.predict_I(I_prediction_method,
+                                               y, predicted_days-start_day, 
+                                               predicted_beta,sigma, gamma, 
+                                               'stoch')
+                if on_incidence:
+                    predicted_Inc[i+1] = np.append(from_last, 
+                                                 (ee[:-1] - ee[1:]) - \
+                                                     (ss[1:] - ss[:-1]))
+                    predicted_Inc[i+1][predicted_Inc[i+1]<0] = 0
+
+                
+        end_time = time.time()
+        execution_time.append(end_time - start_time)
+        if show_fig_flag:
+            ax_to_func = axes[idx]
+        else:
+            ax_to_func = axes[0]
+            
+        # plot graph for seed_number
+        rmse_I, rmse_Inc, rmse_Beta, r2, r2_Inc, \
+            r2_I_full, r2_Inc_full, peak = plot_one(ax_to_func, chosen_col,
+                                                    predicted_days, 
+                            seed_df, predicted_I, predicted_Inc,
+                            beggining_beta, predicted_beta, 
+                            seed_number, end_time - start_time,
+                            show_fig_flag)  
+   
+        all_rmse_I.append(rmse_I)
+        all_rmse_Inc.append(rmse_Inc)
+        all_rmse_Beta.append(rmse_Beta)
+        all_r2.append(r2)
+        all_r2_Inc.append(r2_Inc)
+        all_r2_full.append(r2_I_full)
+        all_r2_Inc_full.append(r2_Inc_full)
+        all_peak.append(peak)
+
+        one_on_switch = seed_df.iloc[start_day].values
+        df_on_switch.append(one_on_switch)
+        
+    #print(seed_df.iloc[start_day])
+    #if ax is None:
+
+    # show the plots
+    '''
+    if show_fig_flag:
+        plt.tight_layout()
+        plt.show()
+    else:
+        
+    '''
+    if show_fig_flag:
+        plt.tight_layout()
+    else:
+        plt.close()
+        
+    if detailed:
+        return all_rmse_I, all_rmse_Inc, all_rmse_Beta, \
+                all_r2, all_r2_Inc, all_r2_full, all_r2_Inc_full, all_peak, \
+                execution_time, start_days, df_on_switch
+    else:
+        return all_rmse_I, all_rmse_Inc, all_rmse_Beta, \
+                    all_r2, all_r2_Inc, all_r2_full, all_r2_Inc_full, all_peak, \
+                    execution_time, start_days
+
 
 def main_f(I_prediction_method, count_stoch_line, 
            beta_prediction_method, type_start_day, seed_numbers,
@@ -276,7 +495,7 @@ def main_f(I_prediction_method, count_stoch_line,
             #print(seed_dirs+seed_number[0])
             window_size = 4
         else:
-            seed_df = pd.read_csv(seed_number)
+            seed_df = pd.read_csv(seed_dirs+f'seir_seed_{seed_number}.csv')
             window_size = 4
             
         #seed_df = seed_df.iloc[:,:5].copy()
@@ -312,7 +531,7 @@ def main_f(I_prediction_method, count_stoch_line,
                                                    min_day=window_size,
                                                    frac=perc_switch,
                                                    n_people=n_people)
-        #print(start_day,n_people,type_start_day,perc_switch)
+        print(start_day,n_people,type_start_day,perc_switch)
         '''
         # ЗА сколько ДО пика
         if not isinstance(type_start_day, str):
@@ -437,8 +656,7 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                  idx_s=0, idx_e=11, methods=[],show_fig_flag=False,
                  is_filename=False, sigma=0.1, gamma=0.08, perc_switch=0.01,
                   stoch=0, m_folder='',
-                 suff_m='sw100k', suff='sw100k',
-                 save_results=False):
+                 suff_m='sw100k', suff='sw100k'):
     
     #df_seeds = pd.read_csv(df_seeds)
     if is_filename:
@@ -462,8 +680,6 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
         methods = ['last value','expanding mean last value',
                'median beta','regression beta', 'lstm']
     topology =suff_m[:2] 
-    r2s = []
-    switches=[]
     for type_start_day in types_start_day:
 
         for beta_pred,new_label in zip(methods[idx_s:idx_e], 
@@ -477,7 +693,7 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                 model_path = f'{m_folder}{suff_m}_lstm_4_001_s10'   
             else:
                 model_path=''
-            #print('path: ', model_path)
+            print('path: ', model_path)
             try:
                 all_rmse_I, all_rmse_Inc, all_rmse_Beta, \
                 all_r2, all_r2_Inc, all_r2_full, all_r2_Inc_full,\
@@ -496,41 +712,36 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                                         on_incidence=on_incidence,
                                         switch_on_incidence=switch_on_incidence,
                                         topology=topology)
-                r2s.append(all_r2_Inc)
-                switches.append(start_days)
                 
-                if save_results:
-                    # creating a dataframe for peaks
-                    all_peak = pd.DataFrame(all_peak, 
-                                    columns=['actual_peak_I', 'predicted_peak_I', 
-                                            'actual_peak_Inc', 'predicted_peak_inc',
-                                            'actual_peak_day', 'predicted_peak_day',
-                                            'actual_peak_day_Inc', 'predicted_peak_day_inc'])
-                    # creating a dataframe for peaks RMSE, predicted time, start day
-                    rmse_df = pd.DataFrame({
-                        'rmse_I': all_rmse_I,
-                        'rmse_Inc': all_rmse_Inc,
-                        'rmse_Beta': all_rmse_Beta,
-                        'r2': all_r2,
-                        'r2_Inc': all_r2_Inc,
-                        'r2_full': all_r2_full,
-                        'r2_Inc_full': all_r2_Inc_full,
-                        'time_predict': execution_time,
-                        f'{type_start_day}': start_days})
+                # creating a dataframe for peaks
+                all_peak = pd.DataFrame(all_peak, 
+                                columns=['actual_peak_I', 'predicted_peak_I', 
+                                        'actual_peak_Inc', 'predicted_peak_inc',
+                                        'actual_peak_day', 'predicted_peak_day',
+                                        'actual_peak_day_Inc', 'predicted_peak_day_inc'])
+                # creating a dataframe for peaks RMSE, predicted time, start day
+                rmse_df = pd.DataFrame({
+                    'rmse_I': all_rmse_I,
+                    'rmse_Inc': all_rmse_Inc,
+                    'rmse_Beta': all_rmse_Beta,
+                    'r2': all_r2,
+                    'r2_Inc': all_r2_Inc,
+                    'r2_full': all_r2_full,
+                    'r2_Inc_full': all_r2_Inc_full,
+                    'time_predict': execution_time,
+                    f'{type_start_day}': start_days})
 
-                    # merging dataframes
-                    results = pd.concat([rmse_df, all_peak], axis=1)
-                    folder_name = seed_numbers.split('/')[0]
-
+                # merging dataframes
+                results = pd.concat([rmse_df, all_peak], axis=1)
+                folder_name = seed_dirs.split('/')[-2]
+                
             except FileNotFoundError as e:
-                pass
-                #print(e)
+                print(e)
                 
-            if save_results:
+            if not show_fig_flag:
                 path = f'{m_folder}/results/{folder_name}/{type_start_day}/'
                 if not os.path.exists(path):
                     os.makedirs(path)
                 results.to_csv(f'{path}/{new_label}_results_{suff}.csv', 
                            index=False)
                 
-    return r2s, switches
