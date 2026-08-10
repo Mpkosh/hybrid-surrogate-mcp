@@ -86,7 +86,7 @@ def calibr(draws=200, chains = 4, epsilon=500,
                                                      progressbar=progressbar))
 
     # It took  32616.331862449646 sec
-    print('It took ', end_time-start_time, 'sec')
+    #print('It took ', end_time-start_time, 'sec')
 
     idata = idatap.copy()
 

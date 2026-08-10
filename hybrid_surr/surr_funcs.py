@@ -53,7 +53,7 @@ def get_splits_df(folder='', folder_all='',
         return X_train, y_train, X_test, y_test, tmax
     else:
         if search_full:
-            # to get stochastic 10 trajectories
+            # to get 10 stochastic trajectories
             qw = pd.read_csv(folder_all+f'{network_type}_incidence_100k.csv'
                             ).reset_index(drop=True)
             qw['group'] = qw.index//10
