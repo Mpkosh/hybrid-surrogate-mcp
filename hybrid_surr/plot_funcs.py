@@ -95,6 +95,7 @@ def plots(idata, data, title, with_trace=False,
     
     all_r = []
     all_q = []    
+    r2_part, best_r2 = 0,0
     #print(num_runs)
     if not pred:
         if num_runs[0]>0:
@@ -130,7 +131,8 @@ def plots(idata, data, title, with_trace=False,
                          label=r'Best simulation ($R^2$' +\
                           f' = {all_r[best_idx]:.3f})',
                          zorder=990)
-        
+            best_r2 = all_r[best_idx]
+            
         elif num_runs[0]==0:
             model = AESurrogateModel(10**5,top)
             q = model.simulate(p1_mode,p0_mode)[:data.shape[0]]
@@ -144,6 +146,8 @@ def plots(idata, data, title, with_trace=False,
                              label=r'Best simulation ($R^2$' +\
                               f' = {r2_part:.3f})',
                              zorder=990)
+            best_r2 = r2_part
+            
     next_c='blue'
 
     # real data
@@ -223,7 +227,7 @@ def plots(idata, data, title, with_trace=False,
     #return all_q, all_r
 
     if return_r2:
-        return r2_part
+        return r2_part, best_r2
     
     if with_trace:
         pm.plot_trace(idata);
@@ -620,10 +624,11 @@ def plot_calib(observed_data, idata,
     #ax_scatter.set_ylim(min_y*.9,1)
     #ax_scatter.set_xlim(min_x*.9,1)
     
-    plots(idata, observed_data, '',  
+    _, best_r2 = plots(idata, observed_data, '',  
+          return_r2=True,
           ax=ax_curves, p0_mode=p0_mode,p1_mode=p1_mode,
           network_params=network_params,
          pred=pred,n_hyb_runs=n_hyb_runs,nth=nth)
 
     plt.tight_layout()
-    return p0_mode, p1_mode
+    return p0_mode, p1_mode, best_r2

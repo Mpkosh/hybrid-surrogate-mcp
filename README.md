@@ -4,12 +4,11 @@
 
 ### Hybrid model tools
 - `run_hybrid_methods` — run the hybrid model, save results, save plots.
-- `hybrid_2x2` — run the hybrid model and create a 2x2 figure.
 - `hybrid_heatmap_r2` - create several heatmaps with values of coefficient of determination.
 
 ### Surrogate model tools
-- `surrogate_point_2x2` — run the surrogate model with point estimation and create a 2x2 figure.
-- `surrogate_interval_2x2` — run the surrogate model with interval estimation and create a 2x2 figure.
+- `surrogate_point` — run the surrogate model with point estimation, save plots.
+- `surrogate_interval` — run the surrogate model with interval estimation, save plots.
 - `surrogate_heatmap_r2` - create several heatmaps with values of coefficient of determination.
 
 ### Calibration / forecasting

@@ -211,7 +211,7 @@ def main_f(I_prediction_method, count_stoch_line,
            ax = None, model_path='', perc_switch=0.01,
           is_filename=False, on_incidence=False,
           switch_on_incidence=False,detailed=False,
-          topology='ba'):
+          topology='ba',res_folder_name='ba'):
     '''
     Main function
     
@@ -438,6 +438,7 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                  is_filename=False, sigma=0.1, gamma=0.08, perc_switch=0.01,
                   stoch=0, m_folder='',
                  suff_m='sw100k', suff='sw100k',
+                  res_folder_name='ba',
                  save_results=False):
     
     #df_seeds = pd.read_csv(df_seeds)
@@ -452,15 +453,19 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
 
     
 
-    new_labels = ['last_value', 'expanding_mean_last_value', 
-                'median_beta', 'regression_beta', 
-                  'lstm_day_E_previous_I']
+    method_label_d = {'last value': 'last_value',
+                 'expanding mean last value': 'expanding_mean_last_value',
+                 'median beta': 'median_beta',
+                 'regression beta': 'regression_beta',
+                 'lstm': 'lstm_day_E_previous_I'}
     if len(methods):
         idx_s = 0
         idx_e = len(methods)
     else:
         methods = ['last value','expanding mean last value',
                'median beta','regression beta', 'lstm']
+
+    new_labels = [method_label_d.get(i) for i in methods]
     topology =suff_m[:2] 
     r2s = []
     switches=[]
@@ -495,7 +500,8 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
                                         is_filename=is_filename,
                                         on_incidence=on_incidence,
                                         switch_on_incidence=switch_on_incidence,
-                                        topology=topology)
+                                        topology=topology,
+                                        res_folder_name=res_folder_name)
                 r2s.append(all_r2_Inc)
                 switches.append(start_days)
                 
@@ -520,7 +526,7 @@ def apply_methods(seed_dirs='initial_data/initial_data_ba_10000/',
 
                     # merging dataframes
                     results = pd.concat([rmse_df, all_peak], axis=1)
-                    folder_name = seed_numbers.split('/')[0]
+                    folder_name = res_folder_name#seed_numbers.split('/')[0]
 
             except FileNotFoundError as e:
                 pass

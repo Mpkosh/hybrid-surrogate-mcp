@@ -3,9 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib as mpl
-import arviz as az
 from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,FuncFormatter
+from matplotlib.ticker import ScalarFormatter,FuncFormatter
 from sklearn.model_selection import train_test_split
 from scipy.spatial import ConvexHull
 import seaborn as sns
