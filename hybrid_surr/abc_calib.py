@@ -1,7 +1,7 @@
 import numpy as np
 import pymc as pm
 import time
-from hybrid_surr.calibr.source.autoencoder import AESurrogateModel
+from hybrid_surr.num_exp.source.autoencoder import AESurrogateModel
 
 
 def surr_sim(rng, alpha, beta, modeling_duration, 

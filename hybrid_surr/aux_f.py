@@ -48,7 +48,7 @@ def comma_format(x, pos):
     return f"{int(x)}" 
     
 
-def plot_synth_inc_beta(folder='hybrid_surr/aux_hyb', save_folder=''):
+def plot_synth_inc_beta(folder='hybrid_surr/num_exp', save_folder=''):
     mtest_ba, mtest_ba_beta = \
         get_synth_inc_beta(topology='ba', folder=folder)
     mtest_sw, mtest_sw_beta = \

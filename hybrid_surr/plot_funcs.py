@@ -18,7 +18,7 @@ from hybrid_surr import calibr_funcs
 from arviz.stats.density_utils import _fast_kde_2d, \
                                       _find_hdi_contours
 from shapely.geometry import Polygon, MultiPolygon 
-from hybrid_surr.calibr.source.autoencoder import AESurrogateModel
+from hybrid_surr.num_exp.source.autoencoder import AESurrogateModel
 
 # _____________________ FOR CALIBRATION    
 

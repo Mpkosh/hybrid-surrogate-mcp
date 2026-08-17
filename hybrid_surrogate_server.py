@@ -26,9 +26,9 @@ folder_imgs = 'imgs/'
 '''
 For demonstration purposes without large files: search_full=False.
 After creating datasets and training, inference requires search_full=True and:
-- hybrid_surr\aux_hyb\ba_incidence_100k.csv (or sw_incidence_100k.csv) 
+- hybrid_surr\num_exp\ba_incidence_100k.csv (or sw_incidence_100k.csv) 
     for .run_surrogate_interval() to plot real interval bounds.
-- hybrid_surr\aux_hyb\*.csv as seir dataframes for .run_hybrid_model().
+- hybrid_surr\num_exp\*.csv as seir dataframes for .run_hybrid_model().
 '''
 search_full=False 
 
@@ -43,8 +43,8 @@ def run_hybrid_model(sigma: float=0.3, gamma: float=0.2,
                         'median beta', 'regression beta', 
                         'lstm']]=['regression beta', 'lstm'],
               seir_df_paths: list[str]=\
-               ['/aux_hyb/p_0.13_0.3_0.2_0.0001_0.3900000000000002_seed_0.csv',
-                '/aux_hyb/p_0.9899999999999995_0.3_0.2_0.0001_0.6300000000000003_seed_0.csv'],
+               ['hybrid_surr/num_exp/p_0.13_0.3_0.2_0.0001_0.39_seed_0.csv',
+                'hybrid_surr//num_exp/p_0.99_0.3_0.2_0.0001_0.63_seed_0.csv'],
               save_results:bool = False,
               res_folder_name:str='example',
               show_plots: bool = True,
@@ -123,16 +123,16 @@ def run_hybrid_model(sigma: float=0.3, gamma: float=0.2,
            ][::-1]
     r2s = []
     switches=[]
-    m_folder = f'{folder_main}/aux_hyb/'
+    m_folder = f'{folder_main}/num_exp/'
     
     for k in seir_df_paths:
         for method in beta_pred:
             if 'median' in method:
-                model_path = f'{folder_main}/aux_hyb/{suff_m}_median_beta.csv'
+                model_path = f'{folder_main}/num_exp/{suff_m}_median_beta.csv'
             elif 'regression beta' in method:
-                model_path = f'{folder_main}/aux_hyb/{suff_m}_regression_bt.joblib'
+                model_path = f'{folder_main}/num_exp/{suff_m}_regression_bt.joblib'
             elif 'lstm' in method:
-                model_path = f'{folder_main}/aux_hyb/{suff_m}_lstm_4_001_s10'   
+                model_path = f'{folder_main}/num_exp/{suff_m}_lstm_4_001_s10'   
             else:
                 model_path=''
             try:
@@ -201,7 +201,7 @@ def run_hybrid_model(sigma: float=0.3, gamma: float=0.2,
         answer_plots = ', saved the plots for the hybrid model'
     if save_results:
         answer_results = ', saved the predicted trajectories'
-        res_path = f'{folder_main}/aux_hyb/'+'/results/'+res_folder_name
+        res_path = f'{folder_main}/num_exp/'+'/results/'+res_folder_name
         
     r2s = np.array(r2s).flatten().tolist()
     switches = np.array(switches).flatten().tolist()
@@ -237,14 +237,14 @@ def hybrid_heatmap_r2(topology:Literal["ba","sw"]='ba',
     switch_perc = 5
     metric = 'r2'
     switch='fraq_people'
-    fin_inc = aux_f.df_metrics(folder_name=f'{folder_main}/aux_hyb/',
+    fin_inc = aux_f.df_metrics(folder_name=f'{folder_main}/num_exp/',
                         top_name=f'new_{topology}_100000', 
                        test_suff=f'{topology}_', 
                        switch=switch,
                        with_inc=True, 
                        trim=False, suff=f'_{topology}100k_sI_fullR_{switch_perc}')
     
-    aux_f.metric_hmaps(folder_name=f'{folder_main}/aux_hyb/',
+    aux_f.metric_hmaps(folder_name=f'{folder_main}/num_exp/',
                        fin=fin_inc, met=f'{metric}_Inc', 
                        suff=f'_{topology}_sI_{switch_perc}', 
                        exclude=['Cumulative Average',
@@ -286,9 +286,9 @@ def run_surrogate_point(topology:Literal["ba","sw"]='ba',
     """
     
     type_df = 'point'
-    ae = torch.load(f'{folder_main}/calibr/models/autoencoder_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/num_exp/models/autoencoder_{topology}_100k_n.pt', 
                     weights_only=False)
-    df = pd.read_csv(folder_main+'/calibr/'+f'/{topology}_{type_df}_dataset.csv', 
+    df = pd.read_csv(folder_main+'/num_exp/'+f'/{topology}_{type_df}_dataset.csv', 
                      index_col=0)
     df[['beta','alpha']] = df[['beta','alpha']].round(2)
     
@@ -375,24 +375,24 @@ def run_surrogate_interval(topology:Literal["ba","sw"]='ba',
     
     type_df = 'interval'
     ae = torch.load(folder_main+\
-                    f'/calibr/models/autoencoder_interval_{topology}_100k_n.pt', 
+                    f'/num_exp/models/autoencoder_interval_{topology}_100k_n.pt', 
                         weights_only=False)
     if search_full:
         X_train, y_train, X_test, y_test, tmax, mtest,df_stoch_ts = \
                     surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
-                                             folder_all=folder_main+'aux_hyb/',
+                                             folder_all=folder_main+'num_exp/',
                                              type_df=type_df,
                                              network_type = topology,
                                              with_orig_X=True,
                                             search_full=search_full)
     else:
         df_stoch_ts = pd.read_csv(folder_main+\
-                                  '/aux_hyb/'+f'/{topology}_4id_10samples.csv')
+                                  '/num_exp/'+f'/{topology}_4id_10samples.csv')
     df_stoch_ts[['beta','alpha']] = df_stoch_ts[['beta','alpha']].round(2)
 
     #type_df = 'point'
     df_mean_ts = pd.read_csv(folder_main+\
-                             '/calibr/'+f'/{topology}_{type_df}_dataset.csv', 
+                             '/num_exp/'+f'/{topology}_{type_df}_dataset.csv', 
                      index_col=0)
     df_mean_ts[['beta','alpha']] = df_mean_ts[['beta','alpha']].round(2)
 
@@ -500,19 +500,19 @@ def surrogate_heatmap_r2(topology:Literal["ba","sw"]='ba',
     """
         
     type_df = 'point'
-    ae = torch.load(f'{folder_main}/calibr/models/autoencoder_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/num_exp/models/autoencoder_{topology}_100k_n.pt', 
                     weights_only=False)
     X_train, y_train, X_test, y_test,tmax = \
-        surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
+        surr_funcs.get_splits_df(folder=folder_main+'num_exp/', 
                                  type_df=type_df,network_type = topology)
     dd = surr_funcs.df_for_heatmap(ae, type_df,X_train, y_train, 
                                    X_test, y_test, tmax)
     
     type_df = 'interval'
-    ae = torch.load(f'{folder_main}/calibr/models/autoencoder_interval_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/num_exp/models/autoencoder_interval_{topology}_100k_n.pt', 
                     weights_only=False)
     X_train, y_train, X_test, y_test,tmax = \
-        surr_funcs.get_splits_df(folder=folder_main+'calibr/', 
+        surr_funcs.get_splits_df(folder=folder_main+'num_exp/', 
                                  type_df=type_df,network_type = topology)
     dd2_mean,dd2_min,dd2_high = surr_funcs.df_for_heatmap(ae, type_df, 
                                                           X_train, y_train, 
@@ -1060,12 +1060,12 @@ def plot_synth_peaks() -> dict:
     ax = axes.flatten()
     
     heat_orig = aux_f.heatmap_orig_peaks(topology='ba',
-                                         folder=f'{folder_main}/aux_hyb')
+                                         folder=f'{folder_main}/num_exp')
     aux_f.peaks_hmaps(heat_orig, with_inc=True, 
                       title=', Barabasi-Albert', 
                       ax=[ax[0],ax[2]], n=['(a)','(c)'])
     heat_orig = aux_f.heatmap_orig_peaks(topology='sw',
-                                         folder=f'{folder_main}/aux_hyb')
+                                         folder=f'{folder_main}/num_exp')
     aux_f.peaks_hmaps(heat_orig, with_inc=True, 
                       title=', small world', 
                       ax=[ax[1],ax[3]], n=['(b)','(d)'])
@@ -1092,7 +1092,7 @@ def plot_synth_inc_beta() -> dict:
             about the request (paths to the saved figures).
     """
     fig_path_inc,fig_path_beta = \
-        aux_f.plot_synth_inc_beta(folder=f'{folder_main}/aux_hyb/',
+        aux_f.plot_synth_inc_beta(folder=f'{folder_main}/num_exp/',
                                   save_folder='imgs/')
     metadata = {
         'Paths to the saved figures': [fig_path_inc,fig_path_beta],
@@ -1175,7 +1175,7 @@ def plot_heatmap_switch(topology:Literal["ba","sw"]='ba',
     """
     switch_perc = 5
     switch='fraq_people'
-    fin_inc = aux_f.df_metrics(folder_name=f'{folder_main}/aux_hyb/',
+    fin_inc = aux_f.df_metrics(folder_name=f'{folder_main}/num_exp/',
                         top_name=f'new_{topology}_100000', 
                        test_suff=f'{topology}_', 
                        switch=switch,

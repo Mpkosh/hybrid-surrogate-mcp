@@ -58,7 +58,7 @@ def switch_seir(sim_data, gamma=0.1, delta=0.08,
                                modeling_duration),                                         stochastic=False,
                             count_stoch_line=0, 
                  sigma=0, gamma=0, 
-                     model_path='hybrid_surr/aux_hyb/ba100k_lstm_4_001_s10', 
+                     model_path='hybrid_surr/num_exp/ba100k_lstm_4_001_s10', 
                      window_size=4,
                     modeling_duration=modeling_duration)
 
