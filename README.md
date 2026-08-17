@@ -4,12 +4,12 @@
 
 ### Hybrid model tools
 - `run_hybrid_methods` — run the hybrid model, save results, save plots.
-- `hybrid_heatmap_r2` - create several heatmaps with values of coefficient of determination.
+- `hybrid_heatmap_r2` — create several heatmaps with values of coefficient of determination.
 
 ### Surrogate model tools
 - `surrogate_point` — run the surrogate model with point estimation, save plots.
 - `surrogate_interval` — run the surrogate model with interval estimation, save plots.
-- `surrogate_heatmap_r2` - create several heatmaps with values of coefficient of determination.
+- `surrogate_heatmap_r2` — create several heatmaps with values of coefficient of determination.
 
 ### Calibration / forecasting
 - `calibrate_model_complete_data` — calibrate parameters of a chosen model to a target incidence curve and save plots.
@@ -20,8 +20,8 @@
 ### Other plotting tools
 - `plot_synth_peaks` — create several heatmaps showing the distribution of peak time and peak incidence for synthetic incidence curves.
 - `plot_synth_inc_beta` — create plots showing incidence trajectories and beta (infection transmission rate) trajectories.
-- `plot_forecast_peak_errors` - create plots showing peak errors for hybrid and surrogate approaches for short-term forecasting.
-- `plot_heatmap_switch` - create several heatmaps showing switching behavior for test samples: difference between epidemic peak time and day of switch; distribution of switch days across all runs.
+- `plot_forecast_peak_errors` — create plots showing peak errors for hybrid and surrogate approaches for short-term forecasting.
+- `plot_heatmap_switch` — create several heatmaps showing switching behavior for test samples: difference between epidemic peak time and day of switch; distribution of switch days across all runs.
 
 ## Files used for creating plots
 ```
@@ -42,7 +42,7 @@ hybrid-surrogate-mcp/
         │   ├── ba_beta_100k_10p.csv                  # Network beta trajectories, 10% sample; used for .plot_synth_inc_beta()
         │   ├── ba_incidence_100k_10p.csv             # Network incidence trajectories, 10% sample; used for .plot_synth_inc_beta()
         │   ├── ba_interval_dataset.csv               # Interval network incidence trajectories; used for .run_surrogate_interval(), .surrogate_heatmap_r2()
-        │   ├── ba_point_dataset.csv                  # Network incidence trajectories; used for 
+        │   ├── ba_point_dataset.csv                  # Network incidence trajectories; used for .run_surrogate_point(), .surrogate_heatmap_r2()
         │   ├── ba100k_lstm_4_001_s10.keras           # Trained LSTM model; used for .run_hybrid_model()
         │   ├── ba100k_lstm_4_001_s10.pkl             # Scaler; used for .run_hybrid_model()
         │   ├── ba100k_median_beta.csv                # Median beta of train network runs; used for .run_hybrid_model()
