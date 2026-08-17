@@ -25,10 +25,21 @@ folder_imgs = 'imgs/'
 
 '''
 For demonstration purposes without large files: search_full=False.
-After creating datasets and training, inference requires search_full=True and:
+
+After creating datasets and training, inference requires search_full=True.
+After creating datasets, there will be:
+- hybrid_surr\num_exp\p_*.csv as seir dataframes for .run_hybrid_model().
 - hybrid_surr\num_exp\ba_incidence_100k.csv (or sw_incidence_100k.csv) 
     for .run_surrogate_interval() to plot real interval bounds.
-- hybrid_surr\num_exp\*.csv as seir dataframes for .run_hybrid_model().
+- hybrid_surr\num_exp\ba_beta_100k.csv (or sw_beta_100k.csv) 
+    for ...
+- hybrid_surr\num_exp\results\*_median_beta.csv as median beta values
+After training, there will be:
+- hybrid_surr\num_exp\results\*.csv as result dataframes for .hybrid_heatmap_r2(), 
+    .plot_heatmap_switch()
+- hybrid_surr\num_exp\results\*_lstm_*.keras as trained hybrid models for lstm
+- hybrid_surr\num_exp\results\*_regression_*.joblib as trained hybrid models for regression
+- hybrid_surr\num_exp\models\*.pt as trained surrogate models.
 '''
 search_full=False 
 
