@@ -12,9 +12,7 @@ import seaborn as sns
 import logging
 from typing import Literal
 import math
-
 import sys
-import os
 import os
 #from io import BytesIO
 
@@ -28,15 +26,25 @@ folder_imgs = 'imgs/'
 
 '''
 For demonstration purposes without large files: search_full=False.
-After creating datasets and training, inference requires search_full=True and:
-- hybrid_surr\num_exp\ba_incidence_100k.csv (or sw_incidence_100k.csv) 
-    for .run_surrogate_interval() to plot real interval bounds.
-- hybrid_surr\num_exp\*.csv as seir dataframes for .run_hybrid_model().
+After creating datasets and training, inference requires search_full=True.
+
+After creating datasets, there will be:
+- hybrid_surr\num_exp\net_data\<topology>_seir\p_*.csv as seir dataframes for .run_hybrid_model().
+- hybrid_surr\num_exp\net_data\<topology>_incidence_100k.csv 
+- hybrid_surr\num_exp\net_data\<topology>_beta_100k.csv 
+- hybrid_surr\num_exp\hyb_models\*_median_beta.csv
+
+After training, there will be:
+- hybrid_surr\num_exp\results\<topology>\<switch>\*.csv as result dataframes for .hybrid_heatmap_r2(), .plot_heatmap_switch()
+- hybrid_surr\num_exp\hyb_models\*_lstm_*.keras as trained hybrid models for lstm
+- hybrid_surr\num_exp\hyb_models\*_regression_*.joblib as trained hybrid models for regression
+- hybrid_surr\num_exp\surr_models\*.pt as trained surrogate models.
 '''
 search_full=False 
 
-# because the surrogate model was saved as a whole, and requires the same path
+# because the surrogate model was saved as a whole and requires the same path
 sys.path.append(os.path.abspath("hybrid_surr/num_exp"))
+
 
 # --------- hybrid ----------
 @mcp.tool()
@@ -48,7 +56,7 @@ def run_hybrid_model(sigma: float=0.3, gamma: float=0.2,
                         'median beta', 'regression beta', 
                         'lstm']]=['regression beta', 'lstm'],
               seir_df_paths: list[str]=\
-               ['hybrid_surr/num_exp/net-data/ba_seir/p_0.13_0.3_0.2_0.0001_0.39_seed_0.csv',
+    ['hybrid_surr/num_exp/net-data/ba_seir/p_0.13_0.3_0.2_0.0001_0.39_seed_0.csv',
     'hybrid_surr/num_exp/net-data/ba_seir/p_0.99_0.3_0.2_0.0001_0.63_seed_0.csv'],
               save_results:bool = False,
               res_folder_name:str='example',
