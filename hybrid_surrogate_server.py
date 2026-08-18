@@ -12,6 +12,9 @@ import seaborn as sns
 import logging
 from typing import Literal
 import math
+
+import sys
+import os
 import os
 #from io import BytesIO
 
@@ -32,6 +35,8 @@ After creating datasets and training, inference requires search_full=True and:
 '''
 search_full=False 
 
+# because the surrogate model was saved as a whole, and requires the same path
+sys.path.append(os.path.abspath("hybrid_surr/num_exp"))
 
 # --------- hybrid ----------
 @mcp.tool()
@@ -43,8 +48,8 @@ def run_hybrid_model(sigma: float=0.3, gamma: float=0.2,
                         'median beta', 'regression beta', 
                         'lstm']]=['regression beta', 'lstm'],
               seir_df_paths: list[str]=\
-               ['hybrid_surr/num_exp/p_0.13_0.3_0.2_0.0001_0.39_seed_0.csv',
-                'hybrid_surr//num_exp/p_0.99_0.3_0.2_0.0001_0.63_seed_0.csv'],
+               ['hybrid_surr/num_exp/net-data/ba_seir/p_0.13_0.3_0.2_0.0001_0.39_seed_0.csv',
+    'hybrid_surr/num_exp/net-data/ba_seir/p_0.99_0.3_0.2_0.0001_0.63_seed_0.csv'],
               save_results:bool = False,
               res_folder_name:str='example',
               show_plots: bool = True,
@@ -124,75 +129,88 @@ def run_hybrid_model(sigma: float=0.3, gamma: float=0.2,
     r2s = []
     switches=[]
     m_folder = f'{folder_main}/num_exp/'
-    
-    for k in seir_df_paths:
-        for method in beta_pred:
-            if 'median' in method:
-                model_path = f'{folder_main}/num_exp/{suff_m}_median_beta.csv'
-            elif 'regression beta' in method:
-                model_path = f'{folder_main}/num_exp/{suff_m}_regression_bt.joblib'
-            elif 'lstm' in method:
-                model_path = f'{folder_main}/num_exp/{suff_m}_lstm_4_001_s10'   
-            else:
-                model_path=''
-            try:
-                all_rmse_I, all_rmse_Inc, all_rmse_Beta, \
-                    all_r2, all_r2_Inc, all_r2_full, all_r2_Inc_full,\
-                    all_peak, execution_time, start_days = \
-                        plot_hyb.main_f(I_prediction_method='seir', 
-                                    count_stoch_line=n_hybrid_runs, 
-                                    beta_prediction_method=method, 
-                                    type_start_day=types_start_day[0], 
-                                    seed_numbers=[k], show_fig_flag=show_plots,
-                                    seed_dirs=seed_dirs, sigma=sigma, gamma=gamma, 
-                                    ax=[ax[j]], model_path=model_path,
-                                    perc_switch=switch_I_fraction,
-                                    is_filename=False,on_incidence=True,
-                                    switch_on_incidence=False,
-                                    topology=topology,
-                                    res_folder_name=res_folder_name)
-                r2s.append(all_r2_Inc)
-                switches.append(start_days)
-                if show_plots:
-                    ax[j].text(-0.1, 1.1, labs.pop(),
-                               transform=ax[j].transAxes, size=15)
-                j+=1
-    
-                if save_results:
-                    # creating a dataframe for peaks
-                    all_peak = pd.DataFrame(all_peak, 
-                                    columns=['actual_peak_I', 'predicted_peak_I', 
-                                            'actual_peak_Inc', 'predicted_peak_inc',
-                                            'actual_peak_day', 'predicted_peak_day',
-                                            'actual_peak_day_Inc', 'predicted_peak_day_inc'])
-                    # creating a dataframe for peaks RMSE, predicted time, start day
-                    rmse_df = pd.DataFrame({
-                        'rmse_I': all_rmse_I,
-                        'rmse_Inc': all_rmse_Inc,
-                        'rmse_Beta': all_rmse_Beta,
-                        'r2': all_r2,
-                        'r2_Inc': all_r2_Inc,
-                        'r2_full': all_r2_full,
-                        'r2_Inc_full': all_r2_Inc_full,
-                        'time_predict': execution_time,
-                        f'{type_start_day}': start_days})
-    
-                    # merging dataframes
-                    results = pd.concat([rmse_df, all_peak], axis=1)
-                    folder_name = res_folder_name#seed_numbers.split('/')[0]
+    models_folder = f'{folder_main}/num_exp/hyb_models/'
 
-            except FileNotFoundError as e:
-                pass
+    ax = ax.reshape(-1,len(beta_pred))
+    
+    for idx_method, method in enumerate(beta_pred):
+        if 'median' in method:
+            model_path = models_folder+f'{suff_m}_median_beta.csv'
+        elif 'regression beta' in method:
+            model_path = models_folder+f'{suff_m}_regression_bt.joblib'
+        elif 'lstm' in method:
+            model_path = models_folder+f'{suff_m}_lstm_4_001_s10'   
+        else:
+            model_path=''
+        try:
+            all_rmse_I, all_rmse_Inc, all_rmse_Beta, \
+                all_r2, all_r2_Inc, all_r2_full, all_r2_Inc_full,\
+                all_peak, execution_time, start_days = \
+                    plot_hyb.main_f(I_prediction_method='seir', 
+                                count_stoch_line=n_hybrid_runs, 
+                                beta_prediction_method=method, 
+                                type_start_day=types_start_day[0], 
+                                seed_numbers=seir_df_paths, 
+                                show_fig_flag=show_plots,
+                                seed_dirs=seed_dirs, sigma=sigma, gamma=gamma, 
+                                ax=ax[:,idx_method], model_path=model_path,
+                                perc_switch=switch_I_fraction,
+                                is_filename=False,on_incidence=True,
+                                switch_on_incidence=False,
+                                topology=topology,
+                                res_folder_name=res_folder_name)
+            r2s.append(all_r2_Inc)
+            switches.append(start_days)
+            
+
+            if save_results:
+                # creating a dataframe for peaks
+                b_a = pd.DataFrame(
+                        [[i.split('/')[-1].split('_')[1],
+                          i.split('/')[-1].split('_')[5]] for i in seir_df_paths
+                        ],
+                        dtype=float, columns = ['beta','alpha']
+                    )
+                all_peak = pd.DataFrame(all_peak, 
+                                columns=['actual_peak_I', 'predicted_peak_I', 
+                                        'actual_peak_Inc', 'predicted_peak_inc',
+                                        'actual_peak_day', 'predicted_peak_day',
+                                        'actual_peak_day_Inc', 'predicted_peak_day_inc'])
+                # creating a dataframe for peaks RMSE, predicted time, start day
+                rmse_df = pd.DataFrame({
+                    'rmse_I': all_rmse_I,
+                    'rmse_Inc': all_rmse_Inc,
+                    'rmse_Beta': all_rmse_Beta,
+                    'r2': all_r2,
+                    'r2_Inc': all_r2_Inc,
+                    'r2_full': all_r2_full,
+                    'r2_Inc_full': all_r2_Inc_full,
+                    'time_predict': execution_time,
+                    f'{type_start_day}': start_days})
+
+                # merging dataframes
+                results = pd.concat([b_a, rmse_df, all_peak], axis=1)
+                #seed_numbers.split('/')[0]
+
+        except FileNotFoundError as e:
+            pass
                 #print(e)
                 
-            if save_results:
-                path = f'{m_folder}/results/{folder_name}/{type_start_day}/'
-                if not os.path.exists(path):
-                    os.makedirs(path)
-                new_label=method_label_d.get(method,'q')
-                results.to_csv(f'{path}/{new_label}_results_{suff}.csv', 
-                           index=False)
-                
+        if save_results:
+            folder_name = res_folder_name
+            path = f'{m_folder}/results/{folder_name}/{type_start_day}/'
+            if not os.path.exists(path):
+                os.makedirs(path)
+            new_label=method_label_d.get(method,'q')
+            results.to_csv(f'{path}/{new_label}_results_{suff}.csv', 
+                       index=False)
+            
+    ax = ax.flatten()        
+    if show_plots:
+        for j in range(n_unique):
+            ax[j].text(-0.1, 1.1, labs.pop(),
+                       transform=ax[j].transAxes, size=15)
+        
     answer_plots, answer_results = '','',
     fig_path, res_path = '',''
     if show_plots:
@@ -286,9 +304,10 @@ def run_surrogate_point(topology:Literal["ba","sw"]='ba',
     """
     
     type_df = 'point'
-    ae = torch.load(f'{folder_main}/num_exp/models/autoencoder_{topology}_100k_n.pt', 
+    print(f'{folder_main}/num_exp/surr_models/autoencoder_{topology}_100k_n.pt')
+    ae = torch.load(f'{folder_main}/num_exp/surr_models/autoencoder_{topology}_100k_n.pt', 
                     weights_only=False)
-    df = pd.read_csv(folder_main+'/num_exp/'+f'/{topology}_{type_df}_dataset.csv', 
+    df = pd.read_csv(folder_main+'/num_exp/net_data/'+f'/{topology}_{type_df}_dataset.csv', 
                      index_col=0)
     df[['beta','alpha']] = df[['beta','alpha']].round(2)
     
@@ -375,7 +394,7 @@ def run_surrogate_interval(topology:Literal["ba","sw"]='ba',
     
     type_df = 'interval'
     ae = torch.load(folder_main+\
-                    f'/num_exp/models/autoencoder_interval_{topology}_100k_n.pt', 
+                    f'/num_exp/surr_models/autoencoder_interval_{topology}_100k_n.pt', 
                         weights_only=False)
     if search_full:
         X_train, y_train, X_test, y_test, tmax, mtest,df_stoch_ts = \
@@ -387,12 +406,12 @@ def run_surrogate_interval(topology:Literal["ba","sw"]='ba',
                                             search_full=search_full)
     else:
         df_stoch_ts = pd.read_csv(folder_main+\
-                                  '/num_exp/'+f'/{topology}_4id_10samples.csv')
+                                  '/num_exp/net_data/'+f'/{topology}_4id_10samples.csv')
     df_stoch_ts[['beta','alpha']] = df_stoch_ts[['beta','alpha']].round(2)
 
     #type_df = 'point'
     df_mean_ts = pd.read_csv(folder_main+\
-                             '/num_exp/'+f'/{topology}_{type_df}_dataset.csv', 
+                             '/num_exp/net_data/'+f'/{topology}_{type_df}_dataset.csv', 
                      index_col=0)
     df_mean_ts[['beta','alpha']] = df_mean_ts[['beta','alpha']].round(2)
 
@@ -500,19 +519,19 @@ def surrogate_heatmap_r2(topology:Literal["ba","sw"]='ba',
     """
         
     type_df = 'point'
-    ae = torch.load(f'{folder_main}/num_exp/models/autoencoder_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/num_exp/surr_models/autoencoder_{topology}_100k_n.pt', 
                     weights_only=False)
     X_train, y_train, X_test, y_test,tmax = \
-        surr_funcs.get_splits_df(folder=folder_main+'num_exp/', 
+        surr_funcs.get_splits_df(folder=folder_main+'num_exp/net_data/', 
                                  type_df=type_df,network_type = topology)
     dd = surr_funcs.df_for_heatmap(ae, type_df,X_train, y_train, 
                                    X_test, y_test, tmax)
     
     type_df = 'interval'
-    ae = torch.load(f'{folder_main}/num_exp/models/autoencoder_interval_{topology}_100k_n.pt', 
+    ae = torch.load(f'{folder_main}/num_exp/surr_models/autoencoder_interval_{topology}_100k_n.pt', 
                     weights_only=False)
     X_train, y_train, X_test, y_test,tmax = \
-        surr_funcs.get_splits_df(folder=folder_main+'num_exp/', 
+        surr_funcs.get_splits_df(folder=folder_main+'num_exp/net_data/', 
                                  type_df=type_df,network_type = topology)
     dd2_mean,dd2_min,dd2_high = surr_funcs.df_for_heatmap(ae, type_df, 
                                                           X_train, y_train, 
@@ -644,14 +663,22 @@ def calibrate_model_complete_data(model_name:Literal["hybrid", "network",'surrog
                     gamma,n_nodes,top,koeff,shift]
 
     model_idata=f"{top}_{model_str}_a{true_alpha}_b{true_beta}.nc"
-    idata = az.from_netcdf(folder+model_idata)
+    
+    try:
+        # load the calibrated model
+        idata = az.from_netcdf(folder+'/models/'+model_idata)
+    except FileNotFoundError as e:
+        # calibrate the model
+        pass
+        
     if model_name=='surrogate':
         idata = idata.rename({"beta": "tau"})
         
     beta_mode, alpha_mode, best_r2 = plot_funcs.plot_calib(observed_data, idata, 
                                     true_beta, true_alpha, network_params, 
                                     n_hyb_runs=n_network_runs, 
-                                    nth=show_surr_nth_line)
+                                    nth=show_surr_nth_line,
+                                    model_path=folder_main+'/num_exp/hyb_models/')
 
     fig_path=f'{folder_imgs}/calibrate_model_complete_data.png'
     plt.savefig(fig_path, bbox_inches='tight')
@@ -755,10 +782,17 @@ def calibrate_model_complete_data_3in1(n_network_runs:int=1,
     shift=0
     network_params=[with_switch,num_runs,[switch_I_fraction],sigma,
                     gamma,n_nodes,top,koeff,shift]
-    idatas = [az.from_netcdf(folder+\
-                    f"{top}_{model_str}_a{true_alpha}_b{true_beta}.nc") \
-                  for model_str in ['net','hyb','surr']
-                 ]
+    idatas = []
+    for model_str in ['net','hyb','surr']:
+        try:
+            # load the calibrated model
+            idata = az.from_netcdf(folder+'/models/'+\
+                            f"{top}_{model_str}_a{true_alpha}_b{true_beta}.nc")
+            idatas.append(idata)
+        except FileNotFoundError as e:
+            # calibrate the model
+            pass
+    
     # surr model's idata was saved with other arguments
     idatas[-1] = idatas[-1].rename({"beta": "tau"})
     
@@ -789,7 +823,8 @@ def calibrate_model_complete_data_3in1(n_network_runs:int=1,
                                     pred=False,nth=show_surr_nth_line,
                                     n_hyb_runs=n_network_runs,
                                     ax_curves=[ax_curves],
-                                    ax_kde=[ax_up,ax_scatter,ax_right])
+                                    ax_kde=[ax_up,ax_scatter,ax_right],
+                                    model_path=folder_main+'/num_exp/hyb_models/')
         fontsize=14
         ax_curves.annotate(labels[idx], xy=(0, 0), xycoords='axes fraction',
                                xytext=(-30, -50), textcoords='offset points',
@@ -806,7 +841,7 @@ def calibrate_model_complete_data_3in1(n_network_runs:int=1,
         "Best R2":best_r2s,
         'Path to the saved figure': fig_path,
     }
-    return {"answer": 'Calibrated the network, hybrid and surrogate models'+\
+    return {"answer": 'Calibrated the network, hybrid and surrogate models '+\
                 'and created the plot.', 
             "metadata": metadata}
     
@@ -832,7 +867,6 @@ def calibrate_model_forecast(model_name:Literal["hybrid",
     Args:
         model_name (str): The model to use.
             - "hybrid", 
-            - "network", 
             - "surrogate".
         show_surr_nth_line (int): Show each <show_surr_nth_line> line on plots
             to speed up data plotting (relevant only if
@@ -889,11 +923,17 @@ def calibrate_model_forecast(model_name:Literal["hybrid",
         model_str = 'surr'
         
     model_idata=f"{top}_{model_str}_a{true_alpha}_b{true_beta}_{start_forecasting}.nc"
-    idata = az.from_netcdf(folder+model_idata)
-
+    try:
+        # load the calibrated model
+        idata = az.from_netcdf(folder+'/models/'+model_idata)
+    except FileNotFoundError as e:
+        # calibrate the model
+        pass
+    
     beta_mode, alpha_mode, _ = plot_funcs.plot_calib(observed_data, idata, 
                        true_beta, true_alpha, 
-                       network_params, pred=True, nth = show_surr_nth_line)
+                       network_params, pred=True, nth = show_surr_nth_line,
+                       model_path=folder_main+'/num_exp/hyb_models/')
     
     fig_path = f'{folder_imgs}/calibrate_model_forecast.png'
     plt.savefig(fig_path, bbox_inches='tight')
@@ -924,7 +964,6 @@ def calibrate_model_forecast_3in1(model_name:Literal["hybrid",
     Args:
         model_name (str): The model to use.
             - "hybrid", 
-            - "network", 
             - "surrogate".
         show_surr_nth_line (int): Show each <show_surr_nth_line> line on plots
             to speed up data plotting (relevant only if
@@ -1002,11 +1041,17 @@ def calibrate_model_forecast_3in1(model_name:Literal["hybrid",
     gs12 = gs[1,2].subgridspec(2, 2, wspace=0, hspace=0.,
                             width_ratios=[4, 1],
                             height_ratios=[1, 4])
-
-    idatas = [az.from_netcdf(folder+\
-                        f"{top}_{model_str}_a{true_alpha}_b{true_beta}_{start_pred}.nc") \
-              for start_pred in ["14b","7b","7a"]
-             ]
+    idatas = []
+    for start_pred in ["14b","7b","7a"]:
+        try:
+            # load the calibrated model
+            idata = az.from_netcdf(folder+'/models/'+\
+                            f"{top}_{model_str}_a{true_alpha}_b{true_beta}_{start_pred}.nc")
+            idatas.append(idata)
+        except FileNotFoundError as e:
+            # calibrate the model
+            pass
+            
     beta_modes, alpha_modes = [],[]
     for gs_0i, gs_1i, idata_i,idx  in zip([gs00,gs01,gs02],
                                  [gs10,gs11,gs12],
@@ -1024,7 +1069,8 @@ def calibrate_model_forecast_3in1(model_name:Literal["hybrid",
                                                network_params, pred=True,
                                                nth=show_surr_nth_line,
                                                ax_curves=[ax_curves],
-                                               ax_kde=[ax_up,ax_scatter,ax_right])
+                                               ax_kde=[ax_up,ax_scatter,ax_right],
+                                               model_path=folder_main+'/num_exp/hyb_models/')
         beta_modes.append(beta_mode)
         alpha_modes.append(alpha_mode)
         fontsize=14
@@ -1060,12 +1106,12 @@ def plot_synth_peaks() -> dict:
     ax = axes.flatten()
     
     heat_orig = aux_f.heatmap_orig_peaks(topology='ba',
-                                         folder=f'{folder_main}/num_exp')
+                                         folder=f'{folder_main}/num_exp/net_data/')
     aux_f.peaks_hmaps(heat_orig, with_inc=True, 
                       title=', Barabasi-Albert', 
                       ax=[ax[0],ax[2]], n=['(a)','(c)'])
     heat_orig = aux_f.heatmap_orig_peaks(topology='sw',
-                                         folder=f'{folder_main}/num_exp')
+                                         folder=f'{folder_main}/num_exp/net_data/')
     aux_f.peaks_hmaps(heat_orig, with_inc=True, 
                       title=', small world', 
                       ax=[ax[1],ax[3]], n=['(b)','(d)'])
@@ -1092,7 +1138,7 @@ def plot_synth_inc_beta() -> dict:
             about the request (paths to the saved figures).
     """
     fig_path_inc,fig_path_beta = \
-        aux_f.plot_synth_inc_beta(folder=f'{folder_main}/num_exp/',
+        aux_f.plot_synth_inc_beta(folder=f'{folder_main}/num_exp/net_data/',
                                   save_folder='imgs/')
     metadata = {
         'Paths to the saved figures': [fig_path_inc,fig_path_beta],
@@ -1137,7 +1183,7 @@ def plot_forecast_peak_errors(true_alpha:float = 0.95,
                                ).iloc[:cut]
     observed_data.columns=['incidence']
     model_strs = ['hyb','surr']
-    idatas = [[az.from_netcdf(folder+\
+    idatas = [[az.from_netcdf(folder+'/models/'+\
                   f"{top}_{model_str}_a{true_alpha}_b{true_beta}_{start_pred}.nc") \
                   for model_str in model_strs
                 ] for start_pred in start_forecasting

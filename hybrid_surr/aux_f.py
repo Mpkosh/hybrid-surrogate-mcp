@@ -264,21 +264,13 @@ def plot_peaks_ax(ax, idata_ms, sub_labels,
 def df_metrics(folder_name, top_name,
                test_suff='', switch='',
               with_inc=False, trim=False, suff='',
-              methods=[]):
+              methods=[], test_file=True):
     if not methods:
         methods = ['last_value',
                     'median_beta', 
                     'regression_beta','lstm_day_E_previous_I',
                   ]
-    if 'sw' in test_suff:
-        sw = pd.read_csv(f'{folder_name}/test_files.csv').values[::10]
-    else:
-        sw = pd.read_csv(f'{folder_name}/{test_suff}test_files.csv').values[::10]
     
-    sww = pd.Series(sw.flatten()).str.split('_',expand=True)
-    sww.columns = ['p','beta','gamma','delta','initi',
-                   'alpha','seed','nseed']
-    fin = sww[['beta','alpha']].astype(float).round(2)
     fin_m = ['r2','rmse_I','rmse_Beta',
              'pt_err', 'ph_err','time_predict']
     if with_inc:
@@ -289,11 +281,13 @@ def df_metrics(folder_name, top_name,
                 'time_predict']
         
     for label in methods:
+        
         try:
-            
             df = pd.read_csv(f'{folder_name}/results/{top_name}/{switch}/'+\
                              f'{label}_results{suff}.csv')
-
+            
+            if label == methods[0]:
+                fin = df[['beta','alpha']].astype(float).round(2)
             if trim:
                 df = df[df[switch]!=0]
             df['pt_err'] = df['predicted_peak_day'
@@ -308,9 +302,11 @@ def df_metrics(folder_name, top_name,
 
             for met in fin_m:
                 fin[f'{met}.{label}'] = df[met]
+            
         except FileNotFoundError:
             
             pass    
+    
     fin['switch'] = df[switch]      
     fin['days_before_peak'] = df['actual_peak_day']-df[switch]      
     fin['actual_peak_I'] = df['actual_peak_I']

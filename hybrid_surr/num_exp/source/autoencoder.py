@@ -3,12 +3,12 @@ import torch.nn as nn
 import sys
 import os
 # because the model was saved as a whole, and requires the same path
-sys.path.append(os.path.abspath("hybrid_surr/calibr"))
+sys.path.append(os.path.abspath("hybrid_surr/num_exp"))
 
 class AESurrogateModel():
     def __init__(self, population: int, topology='ba'):
         filen = f'autoencoder_{topology}_100k_n'
-        self.model = torch.load(f'hybrid_surr/num_exp/models/{filen}.pt',
+        self.model = torch.load(f'hybrid_surr/num_exp/surr_models/{filen}.pt',
                                 weights_only=False)
         self.model.eval()
 

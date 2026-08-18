@@ -25,7 +25,7 @@ from hybrid_surr.num_exp.source.autoencoder import AESurrogateModel
 def plots(idata, data, title, with_trace=False, 
           show_values=True, return_r2=False, 
           ax=None, p0_mode=0,p1_mode=0,network_params=[], pred=False,
-         n_hyb_runs=1,nth=5):
+         n_hyb_runs=1,nth=5,model_path='hybrid_surr/num_exp/'):
     
     #param_names = ['tau','alpha']   
     with_switch,num_runs,frac,gamma,delta,\
@@ -108,6 +108,7 @@ def plots(idata, data, title, with_trace=False,
                                          with_switch=with_switch,
                                         num_runs=num_runs, 
                                         frac=frac, 
+                                        model_path=model_path,         
                                         size=[data.shape[0]])
                 all_q.append(q)
                 r2_part = r2_score(data_part, q)
@@ -486,7 +487,8 @@ def plot_calib(observed_data, idata,
                true_tau, true_alpha, 
                network_params, pred=False,
                n_hyb_runs=1,nth=5,
-              ax_curves=[], ax_kde=[]):
+              ax_curves=[], ax_kde=[],
+              model_path='hybrid_surr/num_exp/'):
     cmap = mpl.colormaps['viridis']
     hdi_list = [0.2,0.5,0.8,0.9]
     colors_l = cmap(np.linspace(0, 1, len(hdi_list)))
@@ -628,7 +630,8 @@ def plot_calib(observed_data, idata,
           return_r2=True,
           ax=ax_curves, p0_mode=p0_mode,p1_mode=p1_mode,
           network_params=network_params,
-         pred=pred,n_hyb_runs=n_hyb_runs,nth=nth)
+         pred=pred,n_hyb_runs=n_hyb_runs,nth=nth,
+         model_path=model_path)
 
     plt.tight_layout()
     return p0_mode, p1_mode, best_r2

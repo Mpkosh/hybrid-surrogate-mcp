@@ -21,10 +21,11 @@ from hybrid_surr import predict_Beta_I
 
 def switch_seir(sim_data, gamma=0.1, delta=0.08,
                 frac=0.01, modeling_duration=249, 
-                method='expanding'):
-    
-    pop = sim_data.iloc[0,:4].sum()
+                method='expanding',
+                model_path='hybrid_surr/num_exp/'):
     '''
+    pop = sim_data.iloc[0,:4].sum()
+    
     switches = sim_data[sim_data['I'] > pop*frac]
     
     if switches.shape[0]:
@@ -58,7 +59,7 @@ def switch_seir(sim_data, gamma=0.1, delta=0.08,
                                modeling_duration),                                         stochastic=False,
                             count_stoch_line=0, 
                  sigma=0, gamma=0, 
-                     model_path='hybrid_surr/num_exp/ba100k_lstm_4_001_s10', 
+                     model_path=model_path+'ba100k_lstm_4_001_s10', 
                      window_size=4,
                     modeling_duration=modeling_duration)
 
@@ -80,6 +81,7 @@ def switch_seir(sim_data, gamma=0.1, delta=0.08,
 def simulation_func(rng, tau, alpha, modeling_duration, 
                     with_switch=False, num_runs=[1], 
                     frac=[0.01], with_df=False,
+                    model_path='hybrid_surr/num_exp/',
                     size=None):
     
     tau = np.array(tau).flatten()[0]
@@ -137,7 +139,8 @@ def simulation_func(rng, tau, alpha, modeling_duration,
                                       frac=np.array(frac
                                         ).flatten()[0],
                                           modeling_duration=modeling_duration, 
-                                      method=method)
+                                      method=method,
+                                     model_path=model_path)
         # sometimes seed_df.shape[0] > modeling duration (is 150, not 149!)
         #print('seed_df ',seed_df.shape)
         # calculating incidence
