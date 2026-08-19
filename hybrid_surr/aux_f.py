@@ -48,80 +48,85 @@ def comma_format(x, pos):
     return f"{int(x)}"
 
 
-def plot_synth_inc_beta(folder="hybrid_surr/num_exp", save_folder=""):
+def plot_synth_inc_beta(folder="hybrid_surr/num_exp", save_folder="",
+                        only_df=False):
     mtest_ba, mtest_ba_beta = get_synth_inc_beta(topology="ba", folder=folder)
     mtest_sw, mtest_sw_beta = get_synth_inc_beta(topology="sw", folder=folder)
-    formatter = ScalarFormatter(useMathText=True)
-    formatter.set_scientific(True)
-    formatter.set_powerlimits((0, 0))
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.5, 2.5))
-    ax = axes.flatten()
+    if not only_df:
+        formatter = ScalarFormatter(useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((0, 0))
 
-    fig2, axes2 = plt.subplots(1, 2, figsize=(7.5, 2.5))
-    ax2 = axes2.flatten()
+        fig, axes = plt.subplots(1, 2, figsize=(7.5, 2.5))
+        ax = axes.flatten()
 
-    for mtest, mtest_beta, i, tmax, label in zip(
-        [mtest_ba, mtest_sw],
-        [mtest_ba_beta, mtest_sw_beta],
-        range(2),
-        [100, 350],
-        ["Barabasi-Albert", "small world"],
-    ):
-        l1 = ax[i].plot(
-            np.arange(tmax), mtest.iloc[::10, :tmax].T, color="RoyalBlue", alpha=0.1
-        )
-        l2 = ax2[i].plot(
-            np.arange(tmax),
-            mtest_beta.iloc[::10, :tmax].T,
-            color="gray",
-            alpha=0.05,
-            marker="",
-            ls="-",
-        )
+        fig2, axes2 = plt.subplots(1, 2, figsize=(7.5, 2.5))
+        ax2 = axes2.flatten()
 
-        ax[i].grid()
-        ax2[i].grid()
+        for mtest, mtest_beta, i, tmax, label in zip(
+            [mtest_ba, mtest_sw],
+            [mtest_ba_beta, mtest_sw_beta],
+            range(2),
+            [100, 350],
+            ["Barabasi-Albert", "small world"],
+        ):
+            l1 = ax[i].plot(
+                np.arange(tmax), mtest.iloc[::10, :tmax].T, color="RoyalBlue", alpha=0.1
+            )
+            l2 = ax2[i].plot(
+                np.arange(tmax),
+                mtest_beta.iloc[::10, :tmax].T,
+                color="gray",
+                alpha=0.05,
+                marker="",
+                ls="-",
+            )
 
-        # ax[i].axes.xaxis.set_ticklabels([])
-        if "Albert" in label:
-            ax2[i].set_ylim(0, 3e-5)
-            ax[i].set_xlim(0, tmax)
-            ax2[i].set_xlim(0, tmax)
-        else:
-            ax2[i].set_ylim(0, 1e-4)
-            ax[i].set_xlim(0, tmax)
-            ax2[i].set_xlim(-10, tmax + 10)
+            ax[i].grid()
+            ax2[i].grid()
 
-        ax[i].set_title(f"Incidence, {label}")
-        ax[i].set_ylabel("Incidence, cases")
-        ax[i].set_xlabel("Time, days")
-        # ax[i].yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
-        ax[i].yaxis.set_major_formatter(FuncFormatter(comma_format))
+            # ax[i].axes.xaxis.set_ticklabels([])
+            if "Albert" in label:
+                ax2[i].set_ylim(0, 3e-5)
+                ax[i].set_xlim(0, tmax)
+                ax2[i].set_xlim(0, tmax)
+            else:
+                ax2[i].set_ylim(0, 1e-4)
+                ax[i].set_xlim(0, tmax)
+                ax2[i].set_xlim(-10, tmax + 10)
 
-        ax2[i].set_title(rf"$\beta_c$, {label}")
-        ax2[i].set_ylabel(r"$\beta_c$")
-        ax2[i].set_xlabel("Time, days")
+            ax[i].set_title(f"Incidence, {label}")
+            ax[i].set_ylabel("Incidence, cases")
+            ax[i].set_xlabel("Time, days")
+            # ax[i].yaxis.set_major_formatter(ticker.FuncFormatter(custom_formatter))
+            ax[i].yaxis.set_major_formatter(FuncFormatter(comma_format))
 
-        # ax2[i].set_yscale('linear')
-        # ax2[i].ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-        ax2[i].yaxis.set_major_formatter(formatter)
+            ax2[i].set_title(rf"$\beta_c$, {label}")
+            ax2[i].set_ylabel(r"$\beta_c$")
+            ax2[i].set_xlabel("Time, days")
 
-    fig.tight_layout()
-    fig2.tight_layout()
+            # ax2[i].set_yscale('linear')
+            # ax2[i].ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+            ax2[i].yaxis.set_major_formatter(formatter)
 
-    n = ["(a)", "(b)", "(a)", "(b)"][::-1]
-    for ax_i in [ax, ax2]:
-        for i in range(2):
-            ax_i[i].text(-0.1, 1.1, n.pop(), transform=ax_i[i].transAxes, size=1.5 * 8)
+        fig.tight_layout()
+        fig2.tight_layout()
 
-    # if save_folder:
-    path1 = f"{save_folder}/plot_synth_inc.png"
-    fig.savefig(path1, bbox_inches="tight")
-    path2 = f"{save_folder}/plot_synth_beta.png"
-    fig2.savefig(path2, bbox_inches="tight")
+        n = ["(a)", "(b)", "(a)", "(b)"][::-1]
+        for ax_i in [ax, ax2]:
+            for i in range(2):
+                ax_i[i].text(-0.1, 1.1, n.pop(), transform=ax_i[i].transAxes, size=1.5 * 8)
 
-    return path1, path2
+        # if save_folder:
+        path1 = f"{save_folder}/plot_synth_inc.png"
+        fig.savefig(path1, bbox_inches="tight")
+        path2 = f"{save_folder}/plot_synth_beta.png"
+        fig2.savefig(path2, bbox_inches="tight")
+
+        return path1, path2
+    else:
+        return mtest_ba, mtest_ba_beta, mtest_sw, mtest_sw_beta
 
 
 def get_mnames():
@@ -161,13 +166,13 @@ def create_peak_plot(
     pt_actual = observed_data.incidence.argmax()
 
     ymin, ymax, xmin, xmax = 100, -100, 100, -100
-
+    pt_preds, ph_preds = [],[]
     for i, idata_ms, sub_labels in zip(
         np.arange(len(idatas)),
         idatas,
         [["Hybrid", "Surrogate"] for i in range(len(idatas))],
     ):
-        plot_peaks_ax(
+        pt_pred, ph_pred = plot_peaks_ax(
             axes[i],
             idata_ms,
             sub_labels,
@@ -181,6 +186,8 @@ def create_peak_plot(
             alpha_area,
             with_outliers,
         )
+        pt_preds.append(pt_pred)
+        ph_preds.append(ph_pred)
         if same_lims:
             ymin = np.min([ymin, axes[i].get_ylim()[0]])
             ymax = np.max([ymax, axes[i].get_ylim()[1]])
@@ -213,6 +220,8 @@ def create_peak_plot(
 
     if save:
         plt.savefig(f"{folder_name}/peaks_area.pdf", format="pdf", bbox_inches="tight")
+
+    return pt_preds, ph_preds
 
 
 def find_outliers(vals):
@@ -295,6 +304,7 @@ def plot_peaks_ax(
     for lh in leg.legend_handles:
         lh.set_alpha(1)
     leg.set_zorder(20)
+    return pt_pred, ph_pred
 
 
 def df_metrics(

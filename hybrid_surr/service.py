@@ -72,7 +72,7 @@ def run_hybrid_model(
         fig, ax = plt.subplots(rows, 2, figsize=(10, 3 * rows))
         ax = ax.flatten()
     else:
-        ax = [0] * n_unique
+        ax = np.array([0] * n_unique)
 
     if topology == "ba":
         suff_m = "ba100k"
@@ -231,6 +231,7 @@ def hybrid_heatmap_r2(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
+    only_df: bool = False
 ) -> str:
     switch_perc = 5
     metric = "r2"
@@ -244,21 +245,23 @@ def hybrid_heatmap_r2(
         trim=False,
         suff=f"_{topology}100k_sI_fullR_{switch_perc}",
     )
+    if not only_df:
+        aux_f.metric_hmaps(
+            folder_name=f"{folder_main}/num_exp/",
+            fin=fin_inc,
+            met=f"{metric}_Inc",
+            suff=f"_{topology}_sI_{switch_perc}",
+            exclude=["Cumulative Average", "Exponential Decay"],
+            save=False,
+        )
 
-    aux_f.metric_hmaps(
-        folder_name=f"{folder_main}/num_exp/",
-        fin=fin_inc,
-        met=f"{metric}_Inc",
-        suff=f"_{topology}_sI_{switch_perc}",
-        exclude=["Cumulative Average", "Exponential Decay"],
-        save=False,
-    )
+        fig_path = f"{folder_imgs}/hybrid_heatmap_r2.png"
+        plt.savefig(fig_path, bbox_inches="tight")
 
-    fig_path = f"{folder_imgs}/hybrid_heatmap_r2.png"
-    plt.savefig(fig_path, bbox_inches="tight")
-
-    return fig_path
-
+        return fig_path
+    
+    else:
+        return fin_inc
 
 # --------- surrogate ----------
 
@@ -470,6 +473,7 @@ def surrogate_heatmap_r2(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
+    only_df: bool =False,
 ) -> str:
 
     type_df = "point"
@@ -493,60 +497,64 @@ def surrogate_heatmap_r2(
     dd2_mean, dd2_min, dd2_high = surr_funcs.df_for_heatmap(
         ae, type_df, X_train, y_train, X_test, y_test, tmax
     )
-    fontsize = 15
-    fig, axes = plt.subplots(2, 2, figsize=(14, 12))
-    ax = axes.flatten()
 
-    n = ["(a)", "(b)", "(c)", "(d)"][::-1]
+    if not only_df:
+        fontsize = 15
+        fig, axes = plt.subplots(2, 2, figsize=(14, 12))
+        ax = axes.flatten()
 
-    cmap = surr_funcs.nonlinear_cmap()
-    for i, heat_df, title in zip(
-        range(4),
-        [dd, dd2_mean, dd2_min, dd2_high],
-        [
-            "Point estimation",
-            "Interval estimation (mean)",
-            "Interval estimation (lower bound)",
-            "Interval estimation (upper bound)",
-        ],
-    ):
+        n = ["(a)", "(b)", "(c)", "(d)"][::-1]
 
-        ax_i = sns.heatmap(
-            heat_df.sort_index(level=1, ascending=False),
-            cmap=cmap,
-            ax=ax[i],  # norm=norm,
-            cbar_kws={
-                "extendfrac": 0.1,
-                # "ticks":ticks, "boundaries":boundaries
-            },
-            vmin=0,
-            vmax=1,
-            xticklabels=10,
-            yticklabels=10,
-            linewidths=0.0,
-            rasterized=True,
-        )
-        ax_i.set_title(title, fontsize=1.2 * fontsize)
-        ax_i.text(-0.1, 1.1, n.pop(), transform=ax_i.transAxes, size=1.5 * fontsize)
-        ax_i.collections[0].cmap.set_bad("0.7")
-        ax_i.set_xlabel(r"$\beta_n$", fontsize=1.2 * fontsize)
-        ax_i.set_ylabel(r"$\alpha$", fontsize=1.2 * fontsize)
-        ax_i.tick_params(axis="both", which="major", labelsize=fontsize)
-        cbar = ax_i.collections[0].colorbar
-        cbar.set_label(r"$R^2$", rotation=0, size=fontsize)
+        cmap = surr_funcs.nonlinear_cmap()
+        for i, heat_df, title in zip(
+            range(4),
+            [dd, dd2_mean, dd2_min, dd2_high],
+            [
+                "Point estimation",
+                "Interval estimation (mean)",
+                "Interval estimation (lower bound)",
+                "Interval estimation (upper bound)",
+            ],
+        ):
 
-    for i in [-1, -2, -3, -4]:
-        ax_i.figure.axes[i].tick_params(labelsize=fontsize)
+            ax_i = sns.heatmap(
+                heat_df.sort_index(level=1, ascending=False),
+                cmap=cmap,
+                ax=ax[i],  # norm=norm,
+                cbar_kws={
+                    "extendfrac": 0.1,
+                    # "ticks":ticks, "boundaries":boundaries
+                },
+                vmin=0,
+                vmax=1,
+                xticklabels=10,
+                yticklabels=10,
+                linewidths=0.0,
+                rasterized=True,
+            )
+            ax_i.set_title(title, fontsize=1.2 * fontsize)
+            ax_i.text(-0.1, 1.1, n.pop(), transform=ax_i.transAxes, size=1.5 * fontsize)
+            ax_i.collections[0].cmap.set_bad("0.7")
+            ax_i.set_xlabel(r"$\beta_n$", fontsize=1.2 * fontsize)
+            ax_i.set_ylabel(r"$\alpha$", fontsize=1.2 * fontsize)
+            ax_i.tick_params(axis="both", which="major", labelsize=fontsize)
+            cbar = ax_i.collections[0].colorbar
+            cbar.set_label(r"$R^2$", rotation=0, size=fontsize)
 
-    # ax_1.figure.axes[-1].set_ylabel(r'$R^2$', size=fontsize)
-    # ax_1.figure.axes[-2].set_ylabel(r'$R^2$', size=fontsize)
+        for i in [-1, -2, -3, -4]:
+            ax_i.figure.axes[i].tick_params(labelsize=fontsize)
 
-    plt.tight_layout()
-    fig_path = f"{folder_imgs}/surrogate_heatmap_r2.png"
-    plt.savefig(fig_path, bbox_inches="tight")
+        # ax_1.figure.axes[-1].set_ylabel(r'$R^2$', size=fontsize)
+        # ax_1.figure.axes[-2].set_ylabel(r'$R^2$', size=fontsize)
 
-    return fig_path
+        plt.tight_layout()
+        fig_path = f"{folder_imgs}/surrogate_heatmap_r2.png"
+        plt.savefig(fig_path, bbox_inches="tight")
 
+        return fig_path
+    else:
+        return dd, dd2_mean, dd2_min, dd2_high
+    
 
 # --------- calibrations/forecasts ----------
 def calibrate_model_complete_data(
@@ -990,36 +998,43 @@ def calibrate_model_forecast_3in1(
 def plot_synth_peaks(
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
-) -> str:
+    only_df: bool =False
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    ax = axes.flatten()
+) -> str:
 
     heat_orig = aux_f.heatmap_orig_peaks(
         topology="ba", folder=f"{folder_main}/num_exp/net_data/"
     )
-    aux_f.peaks_hmaps(
-        heat_orig,
-        with_inc=True,
-        title=", Barabasi-Albert",
-        ax=[ax[0], ax[2]],
-        n=["(a)", "(c)"],
-    )
-    heat_orig = aux_f.heatmap_orig_peaks(
+    
+    heat_orig_sw = aux_f.heatmap_orig_peaks(
         topology="sw", folder=f"{folder_main}/num_exp/net_data/"
     )
-    aux_f.peaks_hmaps(
-        heat_orig,
-        with_inc=True,
-        title=", small world",
-        ax=[ax[1], ax[3]],
-        n=["(b)", "(d)"],
-    )
+    if not only_df:
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        ax = axes.flatten()
+        aux_f.peaks_hmaps(
+                heat_orig,
+                with_inc=True,
+                title=", Barabasi-Albert",
+                ax=[ax[0], ax[2]],
+                n=["(a)", "(c)"],
+            )
+        
+        aux_f.peaks_hmaps(
+            heat_orig_sw,
+            with_inc=True,
+            title=", small world",
+            ax=[ax[1], ax[3]],
+            n=["(b)", "(d)"],
+        )
 
-    fig_path = f"{folder_imgs}/plot_synth_peaks.png"
-    plt.savefig(fig_path, bbox_inches="tight")
+        fig_path = f"{folder_imgs}/plot_synth_peaks.png"
+        plt.savefig(fig_path, bbox_inches="tight")
 
-    return fig_path
+        return fig_path
+
+    else:
+        return heat_orig, heat_orig_sw
 
 
 def plot_forecast_peak_errors(
@@ -1028,6 +1043,7 @@ def plot_forecast_peak_errors(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
+    only_df: bool = False
 ) -> str:
 
     start_forecasting = ["14b", "7b", "7a"]
@@ -1054,7 +1070,7 @@ def plot_forecast_peak_errors(
         for start_pred in start_forecasting
     ]
 
-    aux_f.create_peak_plot(
+    pt_preds, ph_preds = aux_f.create_peak_plot(
         folder_name=folder,
         observed_data=observed_data,
         idatas=idatas,
@@ -1067,17 +1083,20 @@ def plot_forecast_peak_errors(
         alpha_area=0.3,
         save=False,
     )
+    if not only_df:
+        fig_path = f"{folder_imgs}/plot_forecast_peak_errors.png"
+        plt.savefig(fig_path, bbox_inches="tight")
 
-    fig_path = f"{folder_imgs}/plot_forecast_peak_errors.png"
-    plt.savefig(fig_path, bbox_inches="tight")
-
-    return fig_path
+        return fig_path
+    else:
+        return pt_preds, ph_preds
 
 
 def plot_heatmap_switch(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
+    only_df:bool = True
 ) -> str:
 
     switch_perc = 5
@@ -1091,10 +1110,12 @@ def plot_heatmap_switch(
         trim=False,
         suff=f"_{topology}100k_sI_fullR_{switch_perc}",
     )
+    if not only_df:
+        aux_f.smth_hmaps(fin_inc, 21)
 
-    aux_f.smth_hmaps(fin_inc, 21)
+        fig_path = f"{folder_imgs}/plot_heatmap_switch.png"
+        plt.savefig(fig_path, bbox_inches="tight")
 
-    fig_path = f"{folder_imgs}/plot_heatmap_switch.png"
-    plt.savefig(fig_path, bbox_inches="tight")
-
-    return fig_path
+        return fig_path
+    else:
+        return fin_inc
