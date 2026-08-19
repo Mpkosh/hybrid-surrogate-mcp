@@ -14,8 +14,8 @@
 ### Calibration / forecasting
 - `calibrate_model_complete_data` — calibrate parameters of a chosen model to a target incidence curve and save plots.
 - `calibrate_model_complete_data_3in1` — calibrate parameters of three models (network, hybrid, surrogate) to a target incidence curve and save plots.
-- `calibrate_model_forecast` — short-time forecasting; calibrate parameters of a chosen model to an incomplete target incidence curve and save plots.
-- `calibrate_model_forecast_3in1` — short-time forecasting; calibrate parameters of three models (network, hybrid, surrogate) to an incomplete target incidence curve and save plots.
+- `calibrate_model_forecast` — short-term forecasting; calibrate parameters of a chosen model to an incomplete target incidence curve and save plots.
+- `calibrate_model_forecast_3in1` — short-term forecasting; calibrate parameters of three models (network, hybrid, surrogate) to an incomplete target incidence curve and save plots.
 
 ### Other plotting tools
 - `plot_synth_peaks` — create several heatmaps showing the distribution of peak time and peak incidence for synthetic incidence curves.
