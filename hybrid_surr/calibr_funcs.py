@@ -2,7 +2,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 # from tqdm import tqdm
 # import os
 # from scipy.stats import uniform, norm, multivariate_normal
@@ -13,7 +12,6 @@ import seaborn as sns
 # from hybrid_network_to_seir import NetworkSEIR_tuned,\
 #                                    generate_synthetic_data
 from hybrid_surr import predict_Beta_I, seir_discrete
-
 # from hybrid_surr import plot_funcs
 # from networks.model_output import SEIRModelOutput, SEIRParams
 from hybrid_surr.SEIR_network import SEIRNetworkModel

@@ -48,8 +48,7 @@ def comma_format(x, pos):
     return f"{int(x)}"
 
 
-def plot_synth_inc_beta(folder="hybrid_surr/num_exp", save_folder="",
-                        only_df=False):
+def plot_synth_inc_beta(folder="hybrid_surr/num_exp", save_folder="", only_df=False):
     mtest_ba, mtest_ba_beta = get_synth_inc_beta(topology="ba", folder=folder)
     mtest_sw, mtest_sw_beta = get_synth_inc_beta(topology="sw", folder=folder)
 
@@ -116,7 +115,9 @@ def plot_synth_inc_beta(folder="hybrid_surr/num_exp", save_folder="",
         n = ["(a)", "(b)", "(a)", "(b)"][::-1]
         for ax_i in [ax, ax2]:
             for i in range(2):
-                ax_i[i].text(-0.1, 1.1, n.pop(), transform=ax_i[i].transAxes, size=1.5 * 8)
+                ax_i[i].text(
+                    -0.1, 1.1, n.pop(), transform=ax_i[i].transAxes, size=1.5 * 8
+                )
 
         # if save_folder:
         path1 = f"{save_folder}/plot_synth_inc.png"
@@ -166,7 +167,7 @@ def create_peak_plot(
     pt_actual = observed_data.incidence.argmax()
 
     ymin, ymax, xmin, xmax = 100, -100, 100, -100
-    pt_preds, ph_preds = [],[]
+    pt_preds, ph_preds = [], []
     for i, idata_ms, sub_labels in zip(
         np.arange(len(idatas)),
         idatas,

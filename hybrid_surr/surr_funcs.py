@@ -3,7 +3,8 @@ import numpy as np
 import pandas as pd
 import torch
 from matplotlib.colors import LinearSegmentedColormap
-from sklearn.metrics import r2_score, root_mean_squared_error, top_k_accuracy_score
+from sklearn.metrics import (r2_score, root_mean_squared_error,
+                             top_k_accuracy_score)
 from sklearn.model_selection import train_test_split
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

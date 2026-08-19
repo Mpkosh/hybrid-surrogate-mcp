@@ -2,7 +2,7 @@ import logging
 import math
 import os
 import sys
-from typing import Literal, Any
+from typing import Any, Literal
 
 import arviz as az
 import matplotlib.pyplot as plt
@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
-from sklearn.metrics import r2_score  # , root_mean_squared_error, top_k_accuracy_score
+from sklearn.metrics import \
+    r2_score  # , root_mean_squared_error, top_k_accuracy_score
 
 from hybrid_surr import aux_f, plot_funcs, plot_hyb, surr_funcs
 
@@ -231,7 +232,7 @@ def hybrid_heatmap_r2(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
-    only_df: bool = False
+    only_df: bool = False,
 ) -> str:
     switch_perc = 5
     metric = "r2"
@@ -259,9 +260,10 @@ def hybrid_heatmap_r2(
         plt.savefig(fig_path, bbox_inches="tight")
 
         return fig_path
-    
+
     else:
         return fin_inc
+
 
 # --------- surrogate ----------
 
@@ -473,7 +475,7 @@ def surrogate_heatmap_r2(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
-    only_df: bool =False,
+    only_df: bool = False,
 ) -> str:
 
     type_df = "point"
@@ -554,7 +556,7 @@ def surrogate_heatmap_r2(
         return fig_path
     else:
         return dd, dd2_mean, dd2_min, dd2_high
-    
+
 
 # --------- calibrations/forecasts ----------
 def calibrate_model_complete_data(
@@ -740,7 +742,7 @@ def calibrate_model_complete_data_3in1(
             ]
         elif idx == 2:
             num_runs = [0]
-            switch_I_fraction = 1.
+            switch_I_fraction = 1.0
             with_switch = np.array(False)
             network_params = [
                 with_switch,
@@ -996,16 +998,13 @@ def calibrate_model_forecast_3in1(
 
 
 def plot_synth_peaks(
-    folder_main: str = "hybrid_surr/",
-    folder_imgs: str = "imgs/",
-    only_df: bool =False
-
+    folder_main: str = "hybrid_surr/", folder_imgs: str = "imgs/", only_df: bool = False
 ) -> str:
 
     heat_orig = aux_f.heatmap_orig_peaks(
         topology="ba", folder=f"{folder_main}/num_exp/net_data/"
     )
-    
+
     heat_orig_sw = aux_f.heatmap_orig_peaks(
         topology="sw", folder=f"{folder_main}/num_exp/net_data/"
     )
@@ -1013,13 +1012,13 @@ def plot_synth_peaks(
         fig, axes = plt.subplots(2, 2, figsize=(12, 10))
         ax = axes.flatten()
         aux_f.peaks_hmaps(
-                heat_orig,
-                with_inc=True,
-                title=", Barabasi-Albert",
-                ax=[ax[0], ax[2]],
-                n=["(a)", "(c)"],
-            )
-        
+            heat_orig,
+            with_inc=True,
+            title=", Barabasi-Albert",
+            ax=[ax[0], ax[2]],
+            n=["(a)", "(c)"],
+        )
+
         aux_f.peaks_hmaps(
             heat_orig_sw,
             with_inc=True,
@@ -1043,7 +1042,7 @@ def plot_forecast_peak_errors(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
-    only_df: bool = False
+    only_df: bool = False,
 ) -> str:
 
     start_forecasting = ["14b", "7b", "7a"]
@@ -1096,7 +1095,7 @@ def plot_heatmap_switch(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
-    only_df:bool = True
+    only_df: bool = True,
 ) -> str:
 
     switch_perc = 5
