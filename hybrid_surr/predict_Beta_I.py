@@ -1,17 +1,20 @@
-import pandas as pd
-import numpy as np
 import os
-import joblib
-from tensorflow.keras.models import load_model
-from sklearn.preprocessing import StandardScaler
-from scipy.optimize import curve_fit
-#from statsmodels.tsa.statespace.sarimax import SARIMAXResults
-import tensorflow as tf
-# our functions
-from hybrid_surr import seir_discrete 
-
 import warnings
-warnings.filterwarnings(action='ignore')
+
+import joblib
+import numpy as np
+import pandas as pd
+
+# from statsmodels.tsa.statespace.sarimax import SARIMAXResults
+import tensorflow as tf
+from scipy.optimize import curve_fit
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.models import load_model
+
+# our functions
+from hybrid_surr import seir_discrete
+
+warnings.filterwarnings(action="ignore")
 
 
 def load_saved_model(model_path):
@@ -23,10 +26,11 @@ def load_saved_model(model_path):
 class LSTMPredictor:
     """
     Wraps the trained LSTM model to predict beta on a rolling window of
-    [day, E] (2 features). 
+    [day, E] (2 features).
     The model was trained to predict normalized log_beta, so this class
     denormalizes the prediction and returns beta.
     """
+
     def __init__(self, model, full_scaler, window_size):
         self.model = model
         self.n_feats = 1
@@ -43,26 +47,26 @@ class LSTMPredictor:
         # Store target parameters for log_beta (7th column)
         self.target_mean = full_scaler.mean_[-1]
         self.target_scale = full_scaler.scale_[-1]
-        
+
     def update_buffer(self, new_data):
         # new_data should be a list with 3 elements: [day, E, prev_I]
         self.buffer.append(new_data)
         if len(self.buffer) > self.window_size:
             self.buffer.pop(0)
-            
+
     def predict_next(self):
         # Ensure the buffer has window_size rows
         if len(self.buffer) < self.window_size:
             padded = np.zeros((self.window_size, self.n_feats))
-            padded[-len(self.buffer):] = self.buffer
+            padded[-len(self.buffer) :] = self.buffer
         else:
-            padded = np.array(self.buffer[-self.window_size:])
-            
-        scaled = self.input_scaler.transform(padded) # (4,1)
+            padded = np.array(self.buffer[-self.window_size :])
+
+        scaled = self.input_scaler.transform(padded)  # (4,1)
         # (1,4,1)
         scaled_window = scaled.reshape(1, self.window_size, self.n_feats)
-        
-        #normalized_pred = self.model.predict(scaled_window, verbose=0)[0][0]
+
+        # normalized_pred = self.model.predict(scaled_window, verbose=0)[0][0]
         normalized_pred = self.model.predict_on_batch(scaled_window)[0][0]
         # Denormalize to obtain the raw log_beta
         raw_log_beta = normalized_pred * self.target_scale + self.target_mean
@@ -70,13 +74,23 @@ class LSTMPredictor:
         predicted_beta = np.exp(raw_log_beta)
         return predicted_beta
 
-    
-def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
-                 predicted_days, stochastic, count_stoch_line, 
-                 sigma, gamma, features_reg='', model_path='', 
-                 seed_name='', window_size=14,
-                 modeling_duration=0):
-    '''
+
+def predict_beta(
+    I_prediction_method,
+    seed_df,
+    beta_prediction_method,
+    predicted_days,
+    stochastic,
+    count_stoch_line,
+    sigma,
+    gamma,
+    features_reg="",
+    model_path="",
+    seed_name="",
+    window_size=14,
+    modeling_duration=0,
+):
+    """
     Predict Beta values.
 
     Parameters:
@@ -90,120 +104,130 @@ def predict_beta(I_prediction_method, seed_df, beta_prediction_method,
     - count_stoch_line -- number of trajectories predicted by the stochastic mathematical model
     - sigma -- parameter of the SEIR-type mathematical model
     - gamma -- parameter of the SEIR-type mathematical model
-    '''
-    predicted_I = np.zeros((count_stoch_line+1, 
-                            predicted_days.shape[0]))
+    """
+    predicted_I = np.zeros((count_stoch_line + 1, predicted_days.shape[0]))
     beggining_beta = []
-    if modeling_duration==0:
+    if modeling_duration == 0:
         modeling_duration = seed_df.shape[0]
-    
-    if beta_prediction_method == 'last value':
-        predicted_beta = [seed_df.iloc[predicted_days[0]]['Beta'] 
-                          for i in range(predicted_days.shape[0])]
 
-    elif beta_prediction_method == 'real':
-        predicted_beta = [seed_df.iloc[predicted_days[i]]['Beta'] 
-                          for i in range(predicted_days.shape[0])]
-        
-    elif beta_prediction_method == 'expanding mean last value':
-        beggining_beta = seed_df.Beta.iloc[:predicted_days[0]+1
-                                          ].expanding(1).mean()
+    if beta_prediction_method == "last value":
+        predicted_beta = [
+            seed_df.iloc[predicted_days[0]]["Beta"]
+            for i in range(predicted_days.shape[0])
+        ]
+
+    elif beta_prediction_method == "real":
+        predicted_beta = [
+            seed_df.iloc[predicted_days[i]]["Beta"]
+            for i in range(predicted_days.shape[0])
+        ]
+
+    elif beta_prediction_method == "expanding mean last value":
+        beggining_beta = seed_df.Beta.iloc[: predicted_days[0] + 1].expanding(1).mean()
         last = beggining_beta.iloc[-1]
-        predicted_beta = [last for i in range(predicted_days.shape[0])
-                         ]
+        predicted_beta = [last for i in range(predicted_days.shape[0])]
 
+    elif beta_prediction_method == "median beta":
+        betas = pd.read_csv(model_path)  #'train/median_beta.csv'
+        beggining_beta = betas.iloc[: predicted_days[0] + 1, -1].values
+        predicted_beta = betas.iloc[predicted_days[0] :, -1].values
 
-    elif beta_prediction_method == 'median beta':
-        betas = pd.read_csv(model_path) #'train/median_beta.csv'
-        beggining_beta = betas.iloc[:predicted_days[0]+1,-1].values
-        predicted_beta = betas.iloc[predicted_days[0]:,-1].values
-    
-    
-    elif beta_prediction_method == 'regression beta':
-        #model_path = 'regression_day_for_seir.joblib'
+    elif beta_prediction_method == "regression beta":
+        # model_path = 'regression_day_for_seir.joblib'
         model = load_saved_model(model_path)
         ws = 4
-        input_b = seed_df[['Beta']].shift(np.arange(1,ws+1)
-                                         ).fillna(0).iloc[predicted_days[0]]
+        input_b = (
+            seed_df[["Beta"]]
+            .shift(np.arange(1, ws + 1))
+            .fillna(0)
+            .iloc[predicted_days[0]]
+        )
         input_b = np.log(input_b + 1e-7).values.reshape(1, -1)
-        
+
         predicted_beta = []
         for day in range(predicted_days[0], seed_df.shape[0]):
             pred = model.predict(input_b)
-            if pred[0]<np.log(1e-7):
+            if pred[0] < np.log(1e-7):
                 pred[0] = np.log(1e-7)
             predicted_beta.append(np.exp(pred[0]))
-            input_b = np.array([*pred,*input_b.flatten()[:-1]]).reshape(1, -1)
-    
-    
-    elif beta_prediction_method == 'lstm':
-        full_scaler = joblib.load(f'{model_path}.pkl')
-        model = load_model(f'{model_path}.keras')
-        window_size=4
-        predictor = LSTMPredictor(model, full_scaler, 
-                                  window_size=window_size)
-        inp = seed_df[['Beta']
-                     ].shift(np.arange(window_size)
-                            ).iloc[predicted_days[0]].values
-        inp = np.log(inp+1e-7)
+            input_b = np.array([*pred, *input_b.flatten()[:-1]]).reshape(1, -1)
+
+    elif beta_prediction_method == "lstm":
+        full_scaler = joblib.load(f"{model_path}.pkl")
+        model = load_model(f"{model_path}.keras")
+        window_size = 4
+        predictor = LSTMPredictor(model, full_scaler, window_size=window_size)
+        inp = (
+            seed_df[["Beta"]]
+            .shift(np.arange(window_size))
+            .iloc[predicted_days[0]]
+            .values
+        )
+        inp = np.log(inp + 1e-7)
         inp = np.nan_to_num(inp, neginf=0, posinf=0)
-        
+
         for i in inp[::-1]:
             predictor.update_buffer([i])
-        #print(predictor.buffer)
+        # print(predictor.buffer)
         predicted_beta = []
-        for i in range(predicted_days[0], 
-                       modeling_duration):
+        for i in range(predicted_days[0], modeling_duration):
             pred = predictor.predict_next()
-            #print(pred)
-            if pred<0:
+            # print(pred)
+            if pred < 0:
                 pred = 0
             predicted_beta.append(pred)
-            predictor.update_buffer([np.log(pred+1e-7)])
-            
-    
-    elif beta_prediction_method == 'lstm2':
-        scaler = joblib.load(f'{model_path}.pkl')
-        model = load_model(f'{model_path}.keras')
-        window_size=4
-        
-        inp = seed_df[['Beta']
-                     ].shift(np.arange(window_size)
-                            ).iloc[predicted_days[0]].values
-        inp = np.log(inp+1e-7)
+            predictor.update_buffer([np.log(pred + 1e-7)])
+
+    elif beta_prediction_method == "lstm2":
+        scaler = joblib.load(f"{model_path}.pkl")
+        model = load_model(f"{model_path}.keras")
+        window_size = 4
+
+        inp = (
+            seed_df[["Beta"]]
+            .shift(np.arange(window_size))
+            .iloc[predicted_days[0]]
+            .values
+        )
+        inp = np.log(inp + 1e-7)
         sc_inp = scaler.transform(inp[::-1].reshape(-1, 1))
-        
+
         predicted_beta = []
         sc = sc_inp.reshape(1, window_size, 1)
         sc = tf.convert_to_tensor(sc)
-        
-        zero = scaler.transform(np.array([np.log(1e-7)]
-                                 ).reshape(-1, 1))
-        for i in range(predicted_days[0], 
-                       seed_df.shape[0]): 
+
+        zero = scaler.transform(np.array([np.log(1e-7)]).reshape(-1, 1))
+        for i in range(predicted_days[0], seed_df.shape[0]):
             pred = model.predict_on_batch(sc)
 
             # add pred in the beginning: [y_hat, t, t-1, t-2]
             result = np.empty_like(sc)
-            result[:,:1] = pred
-            result[:,1:] = sc[:,:-1]
-            if pred<zero:
+            result[:, :1] = pred
+            result[:, 1:] = sc[:, :-1]
+            if pred < zero:
                 pred = tf.convert_to_tensor([[0]])
             predicted_beta.append(pred)
 
             sc = result
-            
+
         predicted_beta = scaler.inverse_transform(
-            tf.convert_to_tensor(predicted_beta
-                                ).numpy()[::,0])
-        predicted_beta = np.exp(predicted_beta.flatten())             
-    return np.array(beggining_beta), np.array(predicted_beta), predicted_I 
+            tf.convert_to_tensor(predicted_beta).numpy()[::, 0]
+        )
+        predicted_beta = np.exp(predicted_beta.flatten())
+    return np.array(beggining_beta), np.array(predicted_beta), predicted_I
 
 
-def predict_I(I_prediction_method, y, 
-              predicted_days, 
-              predicted_beta, sigma, gamma, stype, beta_t=True):
-    '''
+def predict_I(
+    I_prediction_method,
+    y,
+    predicted_days,
+    predicted_beta,
+    sigma,
+    gamma,
+    stype,
+    beta_t=True,
+):
+    """
     Predict Infected values.
 
     Parameters:
@@ -217,11 +241,10 @@ def predict_I(I_prediction_method, y,
     - gamma -- parameter of the SEIR-type mathematical model
     - stype -- type of mathematical model
         ['stoch', 'det']
-    '''
-    
-    
-    S,E,I,R = seir_discrete.seir_model(y, predicted_days, 
-                        predicted_beta, sigma, gamma, 
-                        stype, beta_t).T
+    """
 
-    return S,E,I,R
+    S, E, I, R = seir_discrete.seir_model(
+        y, predicted_days, predicted_beta, sigma, gamma, stype, beta_t
+    ).T
+
+    return S, E, I, R

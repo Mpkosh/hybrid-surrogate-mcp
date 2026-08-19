@@ -1,22 +1,29 @@
+import os
+import sys
+
 import torch
 import torch.nn as nn
-import sys
-import os
+
 # because the model was saved as a whole, and requires the same path
 sys.path.append(os.path.abspath("hybrid_surr/num_exp"))
 
-class AESurrogateModel():
-    def __init__(self, population: int, topology='ba'):
-        filen = f'autoencoder_{topology}_100k_n'
-        self.model = torch.load(f'hybrid_surr/num_exp/surr_models/{filen}.pt',
-                                weights_only=False)
+
+class AESurrogateModel:
+    def __init__(self, population: int, topology="ba"):
+        filen = f"autoencoder_{topology}_100k_n"
+        self.model = torch.load(
+            f"hybrid_surr/num_exp/surr_models/{filen}.pt", weights_only=False
+        )
         self.model.eval()
 
-    def simulate(self, alpha, beta, gamma=None, delta=None, init_inf_frac=None, tmax=None):
+    def simulate(
+        self, alpha, beta, gamma=None, delta=None, init_inf_frac=None, tmax=None
+    ):
         alpha_t = torch.tensor(float(alpha), dtype=torch.float32)
         beta_t = torch.tensor(float(beta), dtype=torch.float32)
-        self.daily_incidence = self.model(
-            torch.tensor([beta_t, alpha_t])).detach().cpu().numpy()
+        self.daily_incidence = (
+            self.model(torch.tensor([beta_t, alpha_t])).detach().cpu().numpy()
+        )
         return self.daily_incidence
 
 
@@ -70,13 +77,15 @@ class VariationalAutoencoder(nn.Module):
             nn.SiLU(inplace=True),
             nn.Linear(hidden_size, hidden_size),
             nn.SiLU(inplace=True),
-            nn.Linear(hidden_size, output_size)
+            nn.Linear(hidden_size, output_size),
         )
 
-        self.max_logvar = nn.Parameter(torch.ones(
-            latent_size) * 0.5, requires_grad=True)
-        self.min_logvar = nn.Parameter(torch.ones(
-            latent_size) * -0.5, requires_grad=True)
+        self.max_logvar = nn.Parameter(
+            torch.ones(latent_size) * 0.5, requires_grad=True
+        )
+        self.min_logvar = nn.Parameter(
+            torch.ones(latent_size) * -0.5, requires_grad=True
+        )
 
     def encode(self, x):
         x = self.encoder(x)
@@ -86,9 +95,9 @@ class VariationalAutoencoder(nn.Module):
 
     def reparameterize(self, mu, logvar):
         logvar = torch.clamp(logvar, min=self.min_logvar, max=self.max_logvar)
-        std = torch.exp(0.5*logvar)
+        std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        z = mu + eps*std
+        z = mu + eps * std
         return z
 
     def decode(self, z):
