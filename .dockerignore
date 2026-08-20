@@ -1,9 +1,16 @@
 .git/
 .venv/
+.ipynb_checkpoints/
+.idea/
+.mypy_cache/
+.pytest_cache/
+.vscode/
+*.png
 __pycache__/
 *.pyc
 .pytest_cache/
 artifacts/
+.ipynb
 .env
 .env.*
 !.env.example

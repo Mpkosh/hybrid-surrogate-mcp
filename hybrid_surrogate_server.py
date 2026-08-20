@@ -32,8 +32,8 @@ def run_hybrid_model(
         ]
     ] = ["regression beta", "lstm"],
     seir_df_paths: list[str] = [
-        "hybrid_surr/num_exp/net-data/ba_seir/p_0.13_0.3_0.2_0.0001_0.39_seed_0.csv",
-        "hybrid_surr/num_exp/net-data/ba_seir/p_0.99_0.3_0.2_0.0001_0.63_seed_0.csv",
+        "hybrid_surr/num_exp/net_data/ba_seir/p_0.13_0.3_0.2_0.0001_0.39_seed_0.csv",
+        "hybrid_surr/num_exp/net_data/ba_seir/p_0.99_0.3_0.2_0.0001_0.63_seed_0.csv",
     ],
     save_results: bool = False,
     res_folder_name: str = "example",
@@ -255,7 +255,7 @@ def surrogate_heatmap_r2(
 def calibrate_model_complete_data(
     model_name: Literal["hybrid", "network", "surrogate"] = "hybrid",
     n_network_runs: int = 1,
-    show_surr_nth_line: int = 5,
+    show_surr_nth_line: int = 50,
     sigma: float = 0.3,
     gamma: float = 0.2,
     true_alpha: float = 0.95,
@@ -333,7 +333,7 @@ def calibrate_model_complete_data(
 @mcp.tool()
 def calibrate_model_complete_data_3in1(
     n_network_runs: int = 1,
-    show_surr_nth_line: int = 5,
+    show_surr_nth_line: int = 50,
     sigma: float = 0.3,
     gamma: float = 0.2,
     true_alpha: float = 0.95,
@@ -408,7 +408,7 @@ def calibrate_model_complete_data_3in1(
 @mcp.tool()
 def calibrate_model_forecast(
     model_name: Literal["hybrid", "surrogate"] = "hybrid",
-    show_surr_nth_line: int = 5,
+    show_surr_nth_line: int = 50,
     start_forecasting: Literal["14b", "7b", "7a"] = "14b",
     sigma: float = 0.3,
     gamma: float = 0.2,
@@ -419,7 +419,7 @@ def calibrate_model_forecast(
     topology: Literal["ba", "sw"] = "ba",
 ) -> dict:
     """
-    The tool conducts short-time forecasting of disease incidence.
+    The tool conducts short-term forecasting of disease incidence.
     It calibrates parameters of a chosen model to an incomplete target
     incidence curve simulated by the network model. The calibration employs
     Approximate Bayesian Computation with Sequential Monte Carlo (ABC-SMC).
@@ -488,7 +488,7 @@ def calibrate_model_forecast(
 @mcp.tool()
 def calibrate_model_forecast_3in1(
     model_name: Literal["hybrid", "surrogate"] = "hybrid",
-    show_surr_nth_line: int = 5,
+    show_surr_nth_line: int = 50,
     sigma: float = 0.3,
     gamma: float = 0.2,
     true_beta: float = 0.1,
@@ -498,7 +498,7 @@ def calibrate_model_forecast_3in1(
     topology: Literal["ba", "sw"] = "ba",
 ) -> dict:
     """
-    The tool conducts short-time forecasting of disease incidence.
+    The tool conducts short-term forecasting of disease incidence.
     It calibrates parameters of the chosen model to an incomplete target
     incidence curve simulated by the network model. The calibration employs
     Approximate Bayesian Computation with Sequential Monte Carlo (ABC-SMC).

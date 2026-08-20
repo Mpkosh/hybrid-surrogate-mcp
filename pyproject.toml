@@ -1,5 +1,5 @@
 [project]
-name = "hybrid-surrogate-mcp"
+name = "hybrid-surrogate-mcp-server"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -20,12 +20,13 @@ dependencies = [
     "torch>=2.13.0",
 ]
 
-[project.scripts]
-hybrid-surrogate-mcp = "hybrid_surrogate_mcp:main"
+[tool.uv]
+package = false
 
-[build-system]
-requires = ["uv_build>=0.12.5,<0.13.0"]
-build-backend = "uv_build"
+[[tool.uv.index]]
+name = "pytorch_cpu"
+url = "https://download.pytorch.org/whl/cpu"
 
 [tool.uv.sources]
 eon = { git = "https://github.com/Mpkosh/Mathematics-of-Epidemics-on-Networks", rev = "my_changes" }
+torch = { index = "pytorch_cpu" }

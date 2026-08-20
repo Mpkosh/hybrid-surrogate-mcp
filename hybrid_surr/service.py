@@ -193,8 +193,8 @@ def run_hybrid_model(
                 # seed_numbers.split('/')[0]
 
         except FileNotFoundError as e:
-            pass
-            # print(e)
+            raise FileNotFoundError(f"The SEIR file was not found; {e}")
+            #pass
 
         if save_results:
             folder_name = res_folder_name
@@ -594,6 +594,7 @@ def calibrate_model_complete_data(
     elif model_name == "network":
         model_str = "net"
     elif model_name == "surrogate":
+        num_runs = [0]
         model_str = "surr"
 
     top = topology
@@ -617,8 +618,7 @@ def calibrate_model_complete_data(
         # load the calibrated model
         idata = az.from_netcdf(folder + "/models/" + model_idata)
     except FileNotFoundError as e:
-        # calibrate the model
-        pass
+        raise NotImplementedError(f"The calibrated model was not found; {e}")
 
     if model_name == "surrogate":
         idata = idata.rename({"beta": "tau"})
@@ -635,7 +635,7 @@ def calibrate_model_complete_data(
     )
 
     fig_path = f"{folder_imgs}/calibrate_model_complete_data.png"
-    plt.savefig(fig_path, bbox_inches="tight")
+    plt.savefig(fig_path)
 
     return alpha_mode, beta_mode, best_r2, fig_path
 
@@ -716,8 +716,7 @@ def calibrate_model_complete_data_3in1(
             )
             idatas.append(idata)
         except FileNotFoundError as e:
-            # calibrate the model
-            pass
+            raise NotImplementedError(f"The calibrated model was not found; {e}")
 
     # surr model's idata was saved with other arguments
     idatas[-1] = idatas[-1].rename({"beta": "tau"})
@@ -790,7 +789,7 @@ def calibrate_model_complete_data_3in1(
         best_r2s.append(best_r2)
 
     fig_path = f"{folder_imgs}/calibrate_model_complete_data_3in1.png"
-    plt.savefig(fig_path, bbox_inches="tight")
+    plt.savefig(fig_path)
 
     return alpha_modes, beta_modes, best_r2s, fig_path
 
@@ -840,6 +839,7 @@ def calibrate_model_forecast(
     if model_name == "hybrid":
         model_str = "hyb"
     elif model_name == "surrogate":
+        num_runs = [0]
         model_str = "surr"
 
     model_idata = f"{top}_{model_str}_a{true_alpha}_b{true_beta}_{start_forecasting}.nc"
@@ -847,8 +847,7 @@ def calibrate_model_forecast(
         # load the calibrated model
         idata = az.from_netcdf(folder + "/models/" + model_idata)
     except FileNotFoundError as e:
-        # calibrate the model
-        pass
+        raise NotImplementedError(f"The calibrated model was not found; {e}")
 
     beta_mode, alpha_mode, _ = plot_funcs.plot_calib(
         observed_data,
@@ -862,7 +861,7 @@ def calibrate_model_forecast(
     )
 
     fig_path = f"{folder_imgs}/calibrate_model_forecast.png"
-    plt.savefig(fig_path, bbox_inches="tight")
+    plt.savefig(fig_path)
 
     return alpha_mode, beta_mode, fig_path
 
@@ -914,6 +913,7 @@ def calibrate_model_forecast_3in1(
     if model_name == "hybrid":
         model_str = "hyb"
     elif model_name == "surrogate":
+        num_runs = [0]
         model_str = "surr"
 
     fig = plt.figure(figsize=(20, 10))
@@ -948,8 +948,7 @@ def calibrate_model_forecast_3in1(
             )
             idatas.append(idata)
         except FileNotFoundError as e:
-            # calibrate the model
-            pass
+            raise NotImplementedError(f"The calibrated model was not found; {e}")
 
     beta_modes, alpha_modes = [], []
     for gs_0i, gs_1i, idata_i, idx in zip(
@@ -989,7 +988,7 @@ def calibrate_model_forecast_3in1(
         )
 
     fig_path = f"{folder_imgs}/calibrate_model_forecast_3in1.png"
-    plt.savefig(fig_path, bbox_inches="tight")
+    plt.savefig(fig_path)
 
     return alpha_modes, beta_modes, fig_path
 
@@ -1095,7 +1094,7 @@ def plot_heatmap_switch(
     topology: Literal["ba", "sw"] = "ba",
     folder_main: str = "hybrid_surr/",
     folder_imgs: str = "imgs/",
-    only_df: bool = True,
+    only_df: bool = False,
 ) -> str:
 
     switch_perc = 5
